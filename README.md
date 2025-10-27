@@ -1,3 +1,4 @@
-# docs
-Documentation, white paper, and project plans.
-Welcome to VeriSphere docs repo. See white paper at github.com/VeriSphereVSP/docs for details.
+# VeriSphere Documentation
+Welcome to the VeriSphere documentation repo. Contains white paper, roadmap, and project plans.
+- White Paper: [whitepaper.md](whitepaper.md)
+- Project: github.com/VeriSphereVSP
