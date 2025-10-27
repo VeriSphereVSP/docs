@@ -102,7 +102,7 @@ AI Integration and Collation
 
 Tokenomics
 
-* VSP Token: Uncapped, minted/burned based on alignment. Initialized to $1 per token at release (1 VSP = $1, pegged to gold value via Chainlink XAU/USD oracle for dynamic adjustments).
+* VSP Token: Uncapped, minted/burned based on alignment. Initialized to $1 per token at release (1 VSP at launch = $1. Posting fee at launch will be 1 VSP, and will remain pegged to gold value via Chainlink XAU/USD oracle for dynamic adjustments).
 
 Development Process and Bounty System
 VeriSphere is developed as an open-source project on GitHub (github.com/verisphere), with a browser interface at verisphere.co. The development process is bounty-driven, allowing solo and community contributions without a legal entity. Tasks are broken into modular bounties on Gitcoin, paid in VSP from the treasury wallet. Bounties are paid solely by VSP issuance, minted on-demand from the treasury contract.
