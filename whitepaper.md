@@ -133,6 +133,35 @@ Circular references are **prohibited**.
 - Each link affects all contexts it’s used in, weighted by its own Verity Score.  
 - Influence decays logarithmically with network distance to prevent runaway amplification.
 
+## Diagram — Relation and Influence Flow
+
+```mermaid
+graph TD
+    subgraph ContextA["Context: Post A (VS=30)"]
+        A["Post A"]
+    end
+
+    subgraph Supports
+        L1["Post L1 (VS=80) Supports A"]
+        L2["Post L2 (VS=-50) Supports A"]
+    end
+
+    subgraph Conflicts
+        L3["Post L3 (VS=60) Challenges A"]
+    end
+
+    L1 -->|Support (+)| A
+    L2 -->|Support (+)| A
+    L3 -->|Conflict (-)| A
+
+    classDef support fill:#a3e4d7,stroke:#1abc9c,stroke-width:2px,color:#000;
+    classDef conflict fill:#f5b7b1,stroke:#c0392b,stroke-width:2px,color:#000;
+    classDef context fill:#aed6f1,stroke:#2471a3,stroke-width:2px,color:#000;
+
+    class A context;
+    class L1,L2 support;
+    class L3 conflict;
+
 ---
 
 ## 8. AI Integration and Knowledge Collation
@@ -243,33 +272,3 @@ By merging staking mechanics, prediction markets, and AI-assisted consensus, it 
 
 **Website:** [verisphere.co](https://verisphere.co)  
 **Repository:** [github.com/VeriSphereVSP/core](https://github.com/VeriSphereVSP/core)
-markdown
-Copy code
-## Diagram — Relation and Influence Flow
-
-```mermaid
-graph TD
-    subgraph ContextA["Context: Post A (VS=30)"]
-        A["Post A"]
-    end
-
-    subgraph Supports
-        L1["Post L1 (VS=80) Supports A"]
-        L2["Post L2 (VS=-50) Supports A"]
-    end
-
-    subgraph Conflicts
-        L3["Post L3 (VS=60) Challenges A"]
-    end
-
-    L1 -->|Support (+)| A
-    L2 -->|Support (+)| A
-    L3 -->|Conflict (-)| A
-
-    classDef support fill:#a3e4d7,stroke:#1abc9c,stroke-width:2px,color:#000;
-    classDef conflict fill:#f5b7b1,stroke:#c0392b,stroke-width:2px,color:#000;
-    classDef context fill:#aed6f1,stroke:#2471a3,stroke-width:2px,color:#000;
-
-    class A context;
-    class L1,L2 support;
-    class L3 conflict;
