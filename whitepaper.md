@@ -133,7 +133,7 @@ Circular references are **prohibited**.
 - Each link affects all contexts it’s used in, weighted by its own Verity Score.  
 - Influence decays logarithmically with network distance to prevent runaway amplification.
 
-## Diagram — Relation and Influence Flow
+### 7.4 Diagram — Relation and Influence Flow
 
 ```mermaid
 graph TD
