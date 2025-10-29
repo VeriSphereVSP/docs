@@ -153,43 +153,40 @@ Winning strategies: discover truth **early**, link **strong evidence**, **challe
 | AI query/summarization | — | ✅ (UI layer only) |
 
 ```mermaid
-flowchart LR
+flowchart TB
 
-  subgraph Clients
-    U[User Wallet]
-    RWeb[Reference Website]
-    App[3rd-Party App]
-  end
+%% Layer labels
+subgraph CoreProtocol["Core Protocol (Decentralized, On-Chain)"]
+CP1["Verity Contract<br/>Stake + Burn/Mint Logic"]
+CP2["Relation Contract<br/>Link Registry + Context Stake"]
+CP3["Governance Contract<br/>Param Updates + Bounty Votes"]
+CP4["Gold Oracle<br/>(Fee Peg to Gold Weight)"]
+end
 
-  subgraph Core_OffChain
-    API[Public API - REST/GraphQL/WS]
-    Indexer[Indexing & Derivations<br/>DerivedVS/Visibility, versioned]
-    Search[Search / Vector DB]
-    Graph[Graph DB]
-  end
+subgraph OffChainInfra["Off-Chain Compute Layer"]
+OC1["Indexing + Graph Assembly<br/>Multi-Context Verity Score"]
+OC2["Content Storage<br/>IPFS / Arweave Metadata"]
+OC3["AI Verity Router<br/>Search + Source Comparison + Overrides"]
+end
 
-  subgraph Protocol_OnChain
-    Posts[Posts & CIDs]
-    Stakes[Stake Ledgers<br/>Mint/Burn Engine]
-    Relations[Relations & Context Votes]
-    Oracle[Gold/USD & 10YUST Oracle]
-    Gov[Treasury & Governance]
-  end
+subgraph Interfaces["Client & Integration Layer"]
+UI["Official UI / verisphere.co"]
+CLI["Developer CLI & SDK"]
+API["Open API Gateway"]
+ThirdParty["3rd Party UIs, Research Tools, Bots"]
+end
 
-  U --> RWeb
-  RWeb --> API
-  App --> API
-
-  API --> Search
-  API --> Graph
-  API <-- subscriptions --> Indexer
-
-  Indexer <-- RPC/Logs --> Protocol_OnChain
-  Indexer --> Search
-  Indexer --> Graph
-
-  Oracle --> Protocol_OnChain
-  Gov --> Protocol_OnChain
+%% Connections
+CP1 --> OC1
+CP2 --> OC1
+CP3 --> OC1
+OC1 --> UI
+OC1 --> CLI
+OC1 --> API
+API --> ThirdParty
+AI["External AI Models"] --> OC3 --> UI
+OC1 --> OC3
+OC2 --> UI
 
 ```
 
