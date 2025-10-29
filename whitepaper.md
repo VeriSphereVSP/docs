@@ -113,10 +113,49 @@ with mixing factor \(\alpha \in (0,1)\), governed (default ≈ 0.2).
 \text{Visibility}(A) = \text{TotalStake}(A) \times \frac{\text{DerivedVS}(A) + 100}{200}
 \]
 
+```mermaid
+flowchart TB
+
+%% Posts
+A[Post A<br/>Independent Verity Score]
+B[Post B<br/>Independent Verity Score]
+
+%% Link object
+L["Link A → B<br/>Stake on Link<br/>(Support or Challenge)"]
+
+%% Influence Calculation
+subgraph InfluenceCalc["Influence Engine"]
+V_A[Fetch Verity A]
+S_L["Read Stake on Link(A→B)"]
+Dir["Direction<br/>(+1 Support<br/>−1 Challenge)"]
+Multiply["Compute Influence = Verity(A) × Stake × Direction"]
+AddToB["Add Influence to B's Derived Score"]
+end
+
+%% Flows
+A --> V_A
+L --> S_L
+L --> Dir
+V_A --> Multiply
+S_L --> Multiply
+Dir --> Multiply
+Multiply --> AddToB
+B --> AddToB
+AddToB --> FinalB["Post B<br/>Derived Verity Score"]
+
+%% Notes
+%% Only staked links have power.
+%% Circular links are prohibited.
+%% Influence decays naturally if:
+%% - Link has low stake
+%% - A has weak Verity
+%% - Direction opposes consensus
+
+```
+
 ### 5.7 Anti-Gaming Rules
 - **No cycles**, enforced on-chain.  
 - **Log dampening** caps single-relation dominance.  
-- **One-hop** influence per derivation pass; formulas are **versioned** (e.g., `influence_v1`) and returned by APIs for reproducibility.
 
 ---
 
