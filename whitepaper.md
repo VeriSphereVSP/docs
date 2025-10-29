@@ -247,19 +247,19 @@ AI improves discovery and readability but **never** substitutes for economic con
 
 ```mermaid
 graph TD
-  A[Claim A (Source)] -->|support| B[Claim B (Target)]
-  C[Claim C (Source)] -->|challenge| B
+  A["Claim A (Source)"] -->|support| B["Claim B (Target)"]
+  C["Claim C (Source)"] -->|challenge| B
 
   subgraph ContextVotes
-    L1[Link A→B votes (U_A, D_A)]
-    L2[Link C→B votes (U_B, D_B)]
+    L1["Link A→B votes (U_A, D_A)"]
+    L2["Link C→B votes (U_B, D_B)"]
   end
 
   A --> L1 --> B
   C --> L2 --> B
 
-  note1[Contrib(A→B) = + nVS(A) · Pol(A→B) · nVS(LinkPost_A→B) · Damp]
-  note2[Contrib(C→B) = − nVS(C) · Pol(C→B) · nVS(LinkPost_C→B) · Damp]
+  note1["Contrib(A→B) = + nVS(A) · Pol(A→B) · nVS(LinkPost_A→B) · Damp"]
+  note2["Contrib(C→B) = − nVS(C) · Pol(C→B) · nVS(LinkPost_C→B) · Damp"]
 
   note1 -.-> B
   note2 -.-> B
