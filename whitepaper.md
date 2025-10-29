@@ -154,20 +154,21 @@ Winning strategies: discover truth **early**, link **strong evidence**, **challe
 
 ```mermaid
 flowchart LR
+
   subgraph Clients
     U[User Wallet]
     RWeb[Reference Website]
     App[3rd-Party App]
   end
 
-  subgraph Core_OffChain[Core (Off-Chain)]
-    API[Public API (REST/GraphQL/WS)]
-    Indexer[Indexing & Derivations<br/>(DerivedVS/Visibility, versioned)]
-    Search[(Search / Vector DB)]
-    Graph[(Graph DB)]
+  subgraph Core_OffChain
+    API[Public API - REST/GraphQL/WS]
+    Indexer[Indexing & Derivations<br/>DerivedVS/Visibility, versioned]
+    Search[Search / Vector DB]
+    Graph[Graph DB]
   end
 
-  subgraph Protocol_OnChain[Protocol (On-Chain)]
+  subgraph Protocol_OnChain
     Posts[Posts & CIDs]
     Stakes[Stake Ledgers<br/>Mint/Burn Engine]
     Relations[Relations & Context Votes]
@@ -189,6 +190,7 @@ flowchart LR
 
   Oracle --> Protocol_OnChain
   Gov --> Protocol_OnChain
+
 ```
 
 ---
