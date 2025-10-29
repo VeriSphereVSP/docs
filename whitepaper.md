@@ -294,7 +294,7 @@ The **Protocol ships first**—open, audited, and UI-agnostic—so anyone can bu
 - Posting fee: fixed **gold weight** (~1/4000 oz at launch), VSP amount adjusts with oracle.  
 - Reward rate bounds: **max = 10× 10YUST**, **min = 0.1× 10YUST**.  
 - Idle burn: **unstaked balances burn at min rate**.  
-- Influence parameters: \(\alpha\), \(\lambda\), \(\varepsilon\), damp functions, threshold rules.  
+- Influence parameter: threshold rule.  
 - Governance windows: quorum, thresholds, timelock durations.  
 - Oracle providers and averaging windows.
 
