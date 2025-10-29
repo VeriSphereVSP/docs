@@ -1,123 +1,546 @@
-# VeriSphere: The Game of Staked Truth – A Decentralized Knowledge Market
+# VeriSphere: The Game of Staked Truth � A Decentralized Knowledge Market
 
-White Paper  
-Version 10.0  
-Date: October 10, 2025  
+**White Paper**  
+Version 11.0  
+Date: October 29, 2025  
 Authors: VeriSphere Development Team  
-Contact: info@verisphere.co
+Contact: info@verisphere.co  
 
-## Abstract
+---
 
-VeriSphere turns the search for verified knowledge into a high-stakes game, where users stake VSP tokens on claims to build a dynamic market of truth. This Solana-based dApp lets you post assertions, wager VSP to agree or challenge them, and profit from aligning with community consensus—while losing for misalignment. It collates Wikipedia, Quora, Reddit, and more, but overrides with staked validations to deliver the most accurate responses. VSP mints and burns dynamically, with rates favoring early bets. Relations link posts as supports or conflicts, weighting Verity Scores by staked connections. As a prediction market, it enables perpetual wagers on evolving knowledge. Fees like the 1 VSP posting cost stay pegged to gold's value. VeriSphere gamifies truth, rewarding sharp verity-seekers in a decentralized arena.
+## 1. Abstract
 
-## Introduction
+VeriSphere transforms knowledge verification into a decentralized prediction game. Users stake **VSP tokens** on claims, forming a dynamic **market of truth**. Aligning with consensus earns rewards; opposing it risks losses. The platform combines the community wisdom of Wikipedia, Quora, and Reddit with blockchain-based validation, allowing posts to be modified or overridden based on staked consensus.  
 
-In an era of rampant misinformation, centralized platforms like Wikipedia and Quora struggle with bias, outdated content, and lack of incentives for accuracy. Prediction markets like Polymarket offer speculation but lack integration with knowledge curation. VeriSphere addresses these by turning verity-seeking into a game where users stake VSP tokens on posts, gaining for true or well-liked content and losing for false or disliked ones. The app collates external sources but modifies them with staked user changes, creating a living encyclopedia that "remembers" community refinements. Outcomes evolve perpetually, reflecting total stakes and linked influences. Fees adjust dynamically to VSP's value, ensuring accessibility. Governance is community-driven, with changes proposed and voted on by VSP holders.
+Each post�s **Verity Score (VS)** represents staked agreement vs. disagreement, continuously updated as stakes change. Relations between posts (supports, conflicts) propagate influence across the network. VSP mints and burns dynamically, rewarding early and accurate participation. Fees like the 1 VSP posting cost are pegged to $1 (based on gold value), ensuring accessibility. VeriSphere gamifies truth-seeking�turning verification into a competitive, self-sustaining market.
 
-## Problem Statement
+---
 
-* Misinformation Persistence: Without economic costs, false content spreads unchecked. VeriSphere counters this by imposing staking risks, where misaligned stakes burn VSP, deterring spam.
+## 2. Introduction
 
-* Lack of Incentives: Contributors aren't rewarded for accuracy or penalized for errors. VeriSphere rewards aligned stakes with minting and burns misaligned ones, incentivizing truth-seeking.
+The digital information ecosystem faces a credibility crisis. Traditional platforms (Wikipedia, Quora, StackExchange) rely on moderation and reputation systems�susceptible to bias and groupthink. Prediction markets like Polymarket incentivize correctness but are limited to discrete, one-time events.
 
-* Fragmented Knowledge: External sources aren't unified or refined by user consensus. VeriSphere integrates them but modifies with VS stakes, creating a consensus-driven graph.
+**VeriSphere** unites these concepts into a **continuous, decentralized knowledge market**. Users post assertions, stake to agree or disagree, and influence evolving Verity Scores that represent community consensus.  
 
-* Static Systems: Platforms don't adapt continuously to new stakes or evidence. VeriSphere's perpetual staking and real-time Verity Scores enable ongoing refinement.
+- **Incentivized truth-seeking:** Users profit for aligning with accurate consensus.  
+- **Unified knowledge graph:** Integrates curated sources with staked user input.  
+- **Dynamic adaptation:** Scores evolve as evidence and stakes shift.  
+- **Self-balancing tokenomics:** Minting and burning maintain equilibrium.  
 
-* Prediction Market Limitations: Existing markets focus on binary events, not ongoing knowledge debates. VeriSphere extends prediction markets to perpetual binary claims.
+Governance is decentralized, allowing VSP holders to propose and vote on protocol changes.
 
-VeriSphere solves these by making staking the core mechanic, with variable rewards to boost participation on under-staked topics.
+---
 
-## VeriSphere Overview
+## 3. Problem Statement
 
-VeriSphere is a dApp with a content-first browser interface at verisphere.co, where users search or chat-query for information, receiving collated responses prioritized by staked consensus. Key features:
+### 3.1 Misinformation Persistence  
+False information thrives because it�s free to spread. VeriSphere introduces **economic friction**�false or unpopular stakes lose VSP, deterring low-effort or deceptive content.
 
-* Searchable Knowledge Graph: Posts indexed for quick retrieval, ranked by Verity Scores from stakes.
+### 3.2 Lack of Incentives  
+Contributors to existing platforms aren�t rewarded for accuracy. VeriSphere directly links economic outcomes to verity alignment.
 
-* Threaded Relations: Posts link as supports, conflicts, with stakes influencing connected Verity Scores.
+### 3.3 Fragmented Knowledge  
+Knowledge is siloed across multiple platforms. VeriSphere merges these sources and overlays them with staked consensus for unified insight.
 
-* Continuous Mechanics: Stakes update Verity Scores in real-time, with variable interest rates.
+### 3.4 Static Systems  
+Traditional sites fail to adapt as understanding evolves. VeriSphere�s **perpetual staking model** ensures real-time updates to all claims.
 
-* AI Collation: Prioritizes internal data, modifying external sources with staked changes. For example, for "solar sustainable," VS data overrides Wikipedia if staked Verity >0.7.
+### 3.5 Prediction Market Limitations  
+Existing markets resolve single outcomes; VeriSphere supports **ongoing debates**, reflecting evolving consensus on non-binary or continuous topics.
 
-* Prediction Market Integration: Perpetual staking on claims, with odds views for speculation.
+---
 
-* Token Incentives: Uncapped VSP tokens mint for aligned stakes, burn for misaligned, with higher rates for low-stake posts.
+## 4. VeriSphere Overview
 
-The platform competes with prediction markets by allowing bets on knowledge claims (e.g., "Solar power is sustainable") without final resolution.
+- **Searchable Knowledge Graph:** Indexed posts ranked by Verity Score.  
+- **Threaded Relations:** Posts linked as supports or conflicts.  
+- **Continuous Updates:** Scores and rewards evolve dynamically.  
+- **AI Integration:** External data from Wikipedia, Reddit, and others is collated and modified based on stake-weighted truth values.  
+- **Prediction Market Mechanics:** Users can speculate or invest in ongoing knowledge debates.  
+- **Dynamic Token Incentives:** Mint/burn mechanisms scale with stake and accuracy.  
 
-## User Interface and Visibility Mechanics
+---
 
-The VeriSphere UI is designed to prioritize verified, high-engagement content while de-emphasizing low-quality posts in an egalitarian manner, based solely on a post's total stake and Verity Score. This ensures that visibility is merit-based, rewarding accurate and popular contributions without shadow banning or arbitrary moderation.
+## 5. User Interface and Visibility Mechanics
 
-* Visibility Algorithm: A post's visibility in searches, feeds, and recommendations is determined by a score combining its total stake (sum of agree and disagree VSP) and Verity Score (agree / total). Specifically, visibility_score = total_stake * Verity Score, with higher scores boosting prominence (e.g., top-ranked in results). Low stake/low Verity posts (e.g., Verity <0.5 and total <10 VSP) receive lower visibility, appearing further down in lists or requiring explicit filters to view. This egalitarian approach ensures all posts remain accessible (e.g., via direct links or advanced search), but the market (stake + Verity) naturally surfaces quality content.
+**Visibility Algorithm:**  
+Each post�s visibility score = **total_stake � normalized Verity Score**, ensuring that posts with both high engagement and accuracy rise to prominence.
 
-* UI Elements: The content-first interface displays posts with Verity gauges, stake breakdowns, and relation graphs (D3.js). High-visibility posts appear in personalized feeds, while low ones are demoted but not hidden. Prediction market odds are shown for speculative claims, with stake prompts to engage.
+**Key UI Elements:**  
+- Post cards with Verity meters and stake charts.  
+- Relation graphs (supports/conflicts) visualized via D3.js.  
+- Staking and prediction prompts.  
+- Chat-style query interface for asking questions directly.
 
-* Rationale: This mechanic gamifies discovery, incentivizing staking on promising posts to increase their reach, while low-engagement content fades organically, maintaining a clean user experience without censorship.
+**Principles:**  
+- No arbitrary moderation�visibility purely stake-based.  
+- All posts accessible, though low-verity ones are ranked lower.  
+- Merit-based discovery fosters transparency and engagement.  
 
-## Game Mechanics and Logic
+---
 
-Posting and Staking
+## 6. Game Mechanics and Logic
 
-* Posting: Users create claims or answers (e.g., "Solar energy is sustainable"). Posting incurs a 1 VSP fee (equal to $1 at launch) to discourage spam without being prohibitive. This fee adjusts dynamically to VSP's market value, so that it remains constant relative to the price of gold (via an oracle). The fee is counted as stake for the purposes of the post's Verity Score, but it earns no interest.
+### 6.1 Posting
+Users can post any claim or response. Posting incurs a **1 VSP fee**, dynamically pegged to $1 (based on gold oracle). The fee discourages spam and is burned immediately but still counts as initial stake.
 
-* Interest Rate: Users add stake to upvote/like/agree/support a post, or to downvote/unlike/disagree/oppose a post. Stakes can be readjusted at any time by adding, removing, or switching sides. Interest is earned (via minting) on stake if it "aligns", and it’s lost (via burning) if it “misaligned”. The earn/loss rates are inversely proportional to the total stake per post, ranging from a maximum rate for a post’s 1st stake (a post with zero stake), to a (near) minimum rate for stake on posts with the highest stakes. At release, 10 times the US 10-Year Treasury Note (US10Y) will be used for the maximum rate, while 1/10th of the US10Y will be the minimum rate. Rates are subject to change, based on governance. Unstaked balances lose at the minimum rate.
+### 6.2 Staking and Interest
+- **Agree/Disagree Stakes:** Users stake to support or oppose a post.  
+- **Variable Interest:** Minted VSP rewards proportional to alignment with eventual consensus.  
+- **Inverse Reward Curve:** Higher rewards for early or low-stake participation.  
+- **Penalty for Inactivity:** Unstaked VSP loses value at a minimal rate.
 
-* Updates: Users can't overwrite posts (blockchain immutability). Instead, they may create a new version of a post. They may link it to the original version, using the linking rules. Users may elect to migrate their stakes to the new version.
+At launch:
+- Maximum rate = 10� US10Y (U.S. 10-Year Treasury yield).  
+- Minimum rate = 1/10� US10Y.  
+Rates adjust via governance.
 
-* Deletes: No permanent deletion, as all data is immutable for transparency.
+### 6.3 Post Updates and Versions
+- Posts are **immutable**; new versions are linked as descendants.  
+- Users may **migrate stakes** to newer posts.  
+- No deletions�immutability ensures transparency.
 
-Verity Score Calculation
+---
 
-* Basic Tally: Each post has a Verity Score calculated as agree_stake / (agree_stake + disagree_stake). For example, 10 VSP agree and 5 VSP disagree yields a score of 0.67. Scores update in real-time with every new stake or readjustment.
+## 7. Verity Score and Relation Mechanics
 
-* Rewards/Penalties: Aligned stakes (Verity Score >0.5) mint new VSP at the variable rate, accruing directly to the stake. Misaligned stakes burn at the negative rate, diminishing value.
+### 7.1 Core Verity Score Formula
+\[
+VS = (2 \times \frac{agree\_stake}{total\_stake} - 1) \times 100
+\]
+Example:  
+10 VSP agree, 5 VSP disagree ? \(VS = (2�10/15 - 1)�100 = 33.3\)
 
-Relations and Stake Flow
+### 7.2 Relations and Influence Flow
+Posts can **support** or **conflict** with others. A link between posts transmits influence proportionally to both the **Verity Score** and **stake intensity** of the linked post.
 
-* Relation Types: Links between posts are called "Relations," categorized as:
+Each link has:
+- Independent Verity Score (from its own votes).
+- Contextual votes (up/down) specific to the post it�s linked to.
 
-  * Supports: A post that agrees or builds on another (e.g., evidence reinforcing a claim).
+**Influence Formula:**  
+\[
+VS_{context} = \frac{(agree_{context} \pm \sum(link_{VSnorm} \times link\_votes))}{(total_{context} + \sum(link\_total))} \times 100
+\]
+where  
+\(link_{VSnorm} = (link_{VS} + 100) / 200\)
 
-  * Conflicts: A post that contradicts another (e.g., "sustainable" vs. "unsustainable").
+Supports add; conflicts subtract.  
+Circular references are **prohibited**.  
 
-* Stake Flow Logic: Stakes don't stay isolated—total agree/disagree from linked posts influence each other:
+### 7.3 Aggregate Link Behavior
+- Each post�s **total Verity Score** = native votes + aggregate of contextual link votes.  
+- Each link affects all contexts it�s used in, weighted by its own Verity Score.  
+- Influence decays logarithmically with network distance to prevent runaway amplification.
 
-  * Supports: The Verity Score (VS) for dependent post B is calculated as B_agree + (A_VS * Link_upvotes) / (B_total + A_VS * Link_total). For example, assume that post B has 10 upvotes vs. 5 downvotes (B_agree = 10, B_total = 15). Post A has 60 up vs. 20 down (A_agree = 60, A_total = 80). A user creates a link from A to B, and upvotes it 5. Another user downvotes it 2. The VS yield for B = (10 + 0.75 * 5) / (15 + 0.75 * 7) = 13.75 / 20.25 ≈ 0.68. This formula weights the link by A's VS, and link downvotes dilute the total, ensuring that links are only as strong as their backing.
+```mermaid
+graph TD
+    subgraph ContextA["Context: Post A (VS=30)"]
+        A["Post A"]
+    end
 
-  * Conflicts: Similar to supports, but subtractive: B_agree - (A_VS * Link_upvotes) / (B_total + A_VS * Link_total).
+    subgraph Supports
+        L1["Post L1 (VS=80) Supports A"]
+        L2["Post L2 (VS=-50) Supports A"]
+    end
 
-AI Integration and Collation
+    subgraph Conflicts
+        L3["Post L3 (VS=60) Challenges A"]
+    end
 
-* Query Handling: Home page search bar accepts questions ("Is solar sustainable?") or titles. AI (fine-tuned LLM) processes via NLP.
+    L1 -->|Support (+)| A
+    L2 -->|Support (+)| A
+    L3 -->|Conflict (-)| A
 
-* Workflow:
+    classDef support fill:#a3e4d7,stroke:#1abc9c,stroke-width:2px,color:#000;
+    classDef conflict fill:#f5b7b1,stroke:#c0392b,stroke-width:2px,color:#000;
+    classDef context fill:#aed6f1,stroke:#2471a3,stroke-width:2px,color:#000;
 
-  * Prioritize VS data: If staked posts cover the query (Verity Score >0.7), serve directly with stake metrics.
+    class A context;
+    class L1,L2 support;
+    class L3 conflict;
 
-  * If incomplete, search web (Wikipedia, etc.), then modify: Override facts with VS stakes (e.g., "Wikipedia says X, but VS stakes correct to Y with 1,200 VSP agree").
+---
 
-* Response: Chat-like, with stake prompts to refine.
+## 8. AI Integration and Knowledge Collation
 
-Tokenomics
+### Workflow
+1. **User Query:** Input question (e.g., �Is nuclear power sustainable?�).  
+2. **Internal Search:** Finds matching staked posts.  
+3. **External Augmentation:** If insufficient, pull from Wikipedia, Quora, Reddit, etc.  
+4. **Stake Overlay:** Modify factual responses with staked corrections.  
+5. **Interactive Output:**  
+   Example:  
+   > Wikipedia says X, but VeriSphere consensus (1,200 VSP agree, 200 disagree) corrects it to Y.
 
-* VSP Token: Uncapped, minted/burned based on alignment. Initialized to $1 per token at release (1 VSP at launch = $1. Posting fee at launch will be 1 VSP, and will remain pegged to gold value via Chainlink XAU/USD oracle for dynamic adjustments).
+The AI is fine-tuned for **consensus aggregation** rather than opinion generation.
 
-Development Process and Bounty System
-VeriSphere is developed as an open-source project on GitHub (github.com/verisphere), with a browser interface at verisphere.co. The development process is bounty-driven, allowing solo and community contributions without a legal entity. Tasks are broken into modular bounties on Gitcoin, paid in VSP from the treasury wallet. Bounties are paid solely by VSP issuance, minted on-demand from the treasury contract.
+---
 
-* Completed Tasks: White Paper, Project Plan, Technical Architecture, Domain Acquisition (verisphere.co) and GitHub Setup are completed (with VSP payments logged in a public Google Sheet for transparency).
+## 9. Tokenomics
 
-* Bounty System: Tasks are posted on Gitcoin, with VSP rewards (e.g., 800 VSP for Staking Contract). Contributors submit PRs; approvals trigger payments via wallet transfers. This ensures public development, with the founder logging solo work for VSP (e.g., white paper, project plan, technical architecture, domain setup, etc.). Bounties scale quadratically: p(n) = 100 + 500,000 / n VSP per hour, where n is cumulative hour sequence. For example, the first hour earns 500,100 VSP, the 2nd earns 250,100 VSP, etc. approaching 100 VSP/hour. Each task's bounty = sum(p(n) over its hours), assuming series completion.
+- **Token Name:** VeriSphere Token (VSP)  
+- **Supply:** Uncapped, dynamically minted/burned.  
+- **Initial Price:** 1 VSP � $1 (launch peg).  
+- **Posting Fee:** Pegged to $1 via gold oracle.  
+- **Minting:** Aligned stakes earn new VSP at dynamic rates.  
+- **Burning:** Misaligned stakes lose VSP.  
+- **Governance:** Each VSP = 1 vote. Protocol updates and reward curves governed on-chain.
 
-Roadmap
+**Dynamic Equilibrium:**  
+Minting and burning stabilize token value. Low total staking ? higher minting incentives; high staking ? reduced rates.
 
-* Q4 2025: Core mechanics.
+---
 
-* Q1 2026: AI launch.
+## 10. Development and Bounty System
 
-* Q2 2026: Full app.
+VeriSphere is open-source at **[github.com/VeriSphereVSP](https://github.com/VeriSphereVSP)**.  
+All development is bounty-based and transparent, using VSP as payment.
 
-Conclusion
-VeriSphere empowers users to refine knowledge through staking, with mechanics ensuring perpetual evolution and verity-seeking. Visit verisphere.co. 
+**Bounty Model:**
+\[
+p(n) = 100 + \frac{500,000}{n} \text{ VSP/hour}
+\]
+- Early contributions earn the most.  
+- Rewards asymptotically approach 100 VSP/hour.  
+- Paid directly from treasury via verified PRs.  
+
+**Completed Tasks:**  
+Whitepaper, Technical Architecture, Domain Setup, GitHub Repos.
+
+**Bounty Categories:**  
+- Smart Contracts  
+- Frontend UI  
+- AI Integration  
+- Tokenomics Simulation  
+- Governance & DAO Mechanics  
+
+---
+
+## 11. Roadmap
+
+| Phase | Timeline | Milestone |
+|-------|-----------|-----------|
+| **Q4 2025** | Prototype | Core staking contracts, Verity logic |
+| **Q1 2026** | AI Launch | AI-assisted knowledge curation |
+| **Q2 2026** | MVP | Full dApp release with staking and prediction mechanics |
+| **Q3 2026** | Governance | DAO and treasury activation |
+| **Q4 2026** | Expansion | API and cross-market integrations |
+| **2027+** | Scale | L2 migration, mobile app, decentralized storage |
+
+---
+
+## 12. Governance and Community
+
+- **DAO Governance:** Each VSP = 1 vote.  
+- **Proposal Flow:**  
+  1. Create proposal ? stake = 1,000 VSP.  
+  2. 7-day discussion phase.  
+  3. On-chain vote ? requires quorum = 5%.  
+- **Treasury:** Funds development and rewards through dynamic VSP issuance.  
+- **Transparency:** All bounty transactions logged publicly.
+
+---
+
+## 13. Security and Anti-Manipulation
+
+- **Circular References Blocked:** Prevent self-support loops.  
+- **Stake Decay:** Idle stakes lose small value to discourage spam.  
+- **Identity Neutral:** Wallet-based accounts, optional DID integration.  
+- **Audit Trail:** Immutable blockchain record for all edits and stakes.  
+- **AI Anomaly Detection:** Identifies suspicious voting or stake bot patterns.
+
+---
+
+## 14. Future Work
+
+- **Cross-chain staking and bridging (ETH, SOL, SVM).**  
+- **Integration with decentralized storage (Arweave, IPFS).**  
+- **Advanced relation analytics (network topology of truth).**  
+- **AI prediction synthesis�dynamic truth forecasting.**  
+
+---
+
+## 15. Conclusion
+
+VeriSphere transforms the internet�s information economy into a **truth economy**.  
+By merging staking mechanics, prediction markets, and AI-assisted consensus, it rewards accurate knowledge and penalizes misinformation�without central authority.  
+
+**The game of truth is open. The stakes are real.**  
+
+**Website:** [verisphere.co](https://verisphere.co)  
+**Repository:** [github.com/VeriSphereVSP/core](https://github.com/VeriSphereVSP/core)
+# VeriSphere: The Game of Staked Truth � A Decentralized Knowledge Market
+
+**White Paper**  
+Version 11.0  
+Date: October 29, 2025  
+Authors: VeriSphere Development Team  
+Contact: info@verisphere.co  
+
+---
+
+## 1. Abstract
+
+VeriSphere transforms knowledge verification into a decentralized prediction game. Users stake **VSP tokens** on claims, forming a dynamic **market of truth**. Aligning with consensus earns rewards; opposing it risks losses. The platform combines the community wisdom of Wikipedia, Quora, and Reddit with blockchain-based validation, allowing posts to be modified or overridden based on staked consensus.  
+
+Each post�s **Verity Score (VS)** represents staked agreement vs. disagreement, continuously updated as stakes change. Relations between posts (supports, conflicts) propagate influence across the network. VSP mints and burns dynamically, rewarding early and accurate participation. Fees like the 1 VSP posting cost are pegged to $1 (based on gold value), ensuring accessibility. VeriSphere gamifies truth-seeking�turning verification into a competitive, self-sustaining market.
+
+---
+
+## 2. Introduction
+
+The digital information ecosystem faces a credibility crisis. Traditional platforms (Wikipedia, Quora, StackExchange) rely on moderation and reputation systems�susceptible to bias and groupthink. Prediction markets like Polymarket incentivize correctness but are limited to discrete, one-time events.
+
+**VeriSphere** unites these concepts into a **continuous, decentralized knowledge market**. Users post assertions, stake to agree or disagree, and influence evolving Verity Scores that represent community consensus.  
+
+- **Incentivized truth-seeking:** Users profit for aligning with accurate consensus.  
+- **Unified knowledge graph:** Integrates curated sources with staked user input.  
+- **Dynamic adaptation:** Scores evolve as evidence and stakes shift.  
+- **Self-balancing tokenomics:** Minting and burning maintain equilibrium.  
+
+Governance is decentralized, allowing VSP holders to propose and vote on protocol changes.
+
+---
+
+## 3. Problem Statement
+
+### 3.1 Misinformation Persistence  
+False information thrives because it�s free to spread. VeriSphere introduces **economic friction**�false or unpopular stakes lose VSP, deterring low-effort or deceptive content.
+
+### 3.2 Lack of Incentives  
+Contributors to existing platforms aren�t rewarded for accuracy. VeriSphere directly links economic outcomes to verity alignment.
+
+### 3.3 Fragmented Knowledge  
+Knowledge is siloed across multiple platforms. VeriSphere merges these sources and overlays them with staked consensus for unified insight.
+
+### 3.4 Static Systems  
+Traditional sites fail to adapt as understanding evolves. VeriSphere�s **perpetual staking model** ensures real-time updates to all claims.
+
+### 3.5 Prediction Market Limitations  
+Existing markets resolve single outcomes; VeriSphere supports **ongoing debates**, reflecting evolving consensus on non-binary or continuous topics.
+
+---
+
+## 4. VeriSphere Overview
+
+- **Searchable Knowledge Graph:** Indexed posts ranked by Verity Score.  
+- **Threaded Relations:** Posts linked as supports or conflicts.  
+- **Continuous Updates:** Scores and rewards evolve dynamically.  
+- **AI Integration:** External data from Wikipedia, Reddit, and others is collated and modified based on stake-weighted truth values.  
+- **Prediction Market Mechanics:** Users can speculate or invest in ongoing knowledge debates.  
+- **Dynamic Token Incentives:** Mint/burn mechanisms scale with stake and accuracy.  
+
+---
+
+## 5. User Interface and Visibility Mechanics
+
+**Visibility Algorithm:**  
+Each post�s visibility score = **total_stake � normalized Verity Score**, ensuring that posts with both high engagement and accuracy rise to prominence.
+
+**Key UI Elements:**  
+- Post cards with Verity meters and stake charts.  
+- Relation graphs (supports/conflicts) visualized via D3.js.  
+- Staking and prediction prompts.  
+- Chat-style query interface for asking questions directly.
+
+**Principles:**  
+- No arbitrary moderation�visibility purely stake-based.  
+- All posts accessible, though low-verity ones are ranked lower.  
+- Merit-based discovery fosters transparency and engagement.  
+
+---
+
+## 6. Game Mechanics and Logic
+
+### 6.1 Posting
+Users can post any claim or response. Posting incurs a **1 VSP fee**, dynamically pegged to $1 (based on gold oracle). The fee discourages spam and is burned immediately but still counts as initial stake.
+
+### 6.2 Staking and Interest
+- **Agree/Disagree Stakes:** Users stake to support or oppose a post.  
+- **Variable Interest:** Minted VSP rewards proportional to alignment with eventual consensus.  
+- **Inverse Reward Curve:** Higher rewards for early or low-stake participation.  
+- **Penalty for Inactivity:** Unstaked VSP loses value at a minimal rate.
+
+At launch:
+- Maximum rate = 10� US10Y (U.S. 10-Year Treasury yield).  
+- Minimum rate = 1/10� US10Y.  
+Rates adjust via governance.
+
+### 6.3 Post Updates and Versions
+- Posts are **immutable**; new versions are linked as descendants.  
+- Users may **migrate stakes** to newer posts.  
+- No deletions�immutability ensures transparency.
+
+---
+
+## 7. Verity Score and Relation Mechanics
+
+### 7.1 Core Verity Score Formula
+\[
+VS = (2 \times \frac{agree\_stake}{total\_stake} - 1) \times 100
+\]
+Example:  
+10 VSP agree, 5 VSP disagree ? \(VS = (2�10/15 - 1)�100 = 33.3\)
+
+### 7.2 Relations and Influence Flow
+Posts can **support** or **conflict** with others. A link between posts transmits influence proportionally to both the **Verity Score** and **stake intensity** of the linked post.
+
+Each link has:
+- Independent Verity Score (from its own votes).
+- Contextual votes (up/down) specific to the post it�s linked to.
+
+**Influence Formula:**  
+\[
+VS_{context} = \frac{(agree_{context} \pm \sum(link_{VSnorm} \times link\_votes))}{(total_{context} + \sum(link\_total))} \times 100
+\]
+where  
+\(link_{VSnorm} = (link_{VS} + 100) / 200\)
+
+Supports add; conflicts subtract.  
+Circular references are **prohibited**.  
+
+### 7.3 Aggregate Link Behavior
+- Each post�s **total Verity Score** = native votes + aggregate of contextual link votes.  
+- Each link affects all contexts it�s used in, weighted by its own Verity Score.  
+- Influence decays logarithmically with network distance to prevent runaway amplification.
+
+## Diagram � Relation and Influence Flow
+
+```mermaid
+graph TD
+    subgraph ContextA["Context: Post A (VS=30)"]
+        A["Post A"]
+    end
+
+    subgraph Supports
+        L1["Post L1 (VS=80) Supports A"]
+        L2["Post L2 (VS=-50) Supports A"]
+    end
+
+    subgraph Conflicts
+        L3["Post L3 (VS=60) Challenges A"]
+    end
+
+    L1 -->|Support (+)| A
+    L2 -->|Support (+)| A
+    L3 -->|Conflict (-)| A
+
+    classDef support fill:#a3e4d7,stroke:#1abc9c,stroke-width:2px,color:#000;
+    classDef conflict fill:#f5b7b1,stroke:#c0392b,stroke-width:2px,color:#000;
+    classDef context fill:#aed6f1,stroke:#2471a3,stroke-width:2px,color:#000;
+
+    class A context;
+    class L1,L2 support;
+    class L3 conflict;
+
+---
+
+## 8. AI Integration and Knowledge Collation
+
+### Workflow
+1. **User Query:** Input question (e.g., �Is nuclear power sustainable?�).  
+2. **Internal Search:** Finds matching staked posts.  
+3. **External Augmentation:** If insufficient, pull from Wikipedia, Quora, Reddit, etc.  
+4. **Stake Overlay:** Modify factual responses with staked corrections.  
+5. **Interactive Output:**  
+   Example:  
+   > Wikipedia says X, but VeriSphere consensus (1,200 VSP agree, 200 disagree) corrects it to Y.
+
+The AI is fine-tuned for **consensus aggregation** rather than opinion generation.
+
+---
+
+## 9. Tokenomics
+
+- **Token Name:** VeriSphere Token (VSP)  
+- **Supply:** Uncapped, dynamically minted/burned.  
+- **Initial Price:** 1 VSP � $1 (launch peg).  
+- **Posting Fee:** Pegged to $1 via gold oracle.  
+- **Minting:** Aligned stakes earn new VSP at dynamic rates.  
+- **Burning:** Misaligned stakes lose VSP.  
+- **Governance:** Each VSP = 1 vote. Protocol updates and reward curves governed on-chain.
+
+**Dynamic Equilibrium:**  
+Minting and burning stabilize token value. Low total staking ? higher minting incentives; high staking ? reduced rates.
+
+---
+
+## 10. Development and Bounty System
+
+VeriSphere is open-source at **[github.com/VeriSphereVSP](https://github.com/VeriSphereVSP)**.  
+All development is bounty-based and transparent, using VSP as payment.
+
+**Bounty Model:**
+\[
+p(n) = 100 + \frac{500,000}{n} \text{ VSP/hour}
+\]
+- Early contributions earn the most.  
+- Rewards asymptotically approach 100 VSP/hour.  
+- Paid directly from treasury via verified PRs.  
+
+**Completed Tasks:**  
+Whitepaper, Technical Architecture, Domain Setup, GitHub Repos.
+
+**Bounty Categories:**  
+- Smart Contracts  
+- Frontend UI  
+- AI Integration  
+- Tokenomics Simulation  
+- Governance & DAO Mechanics  
+
+---
+
+## 11. Roadmap
+
+| Phase | Timeline | Milestone |
+|-------|-----------|-----------|
+| **Q4 2025** | Prototype | Core staking contracts, Verity logic |
+| **Q1 2026** | AI Launch | AI-assisted knowledge curation |
+| **Q2 2026** | MVP | Full dApp release with staking and prediction mechanics |
+| **Q3 2026** | Governance | DAO and treasury activation |
+| **Q4 2026** | Expansion | API and cross-market integrations |
+| **2027+** | Scale | L2 migration, mobile app, decentralized storage |
+
+---
+
+## 12. Governance and Community
+
+- **DAO Governance:** Each VSP = 1 vote.  
+- **Proposal Flow:**  
+  1. Create proposal ? stake = 1,000 VSP.  
+  2. 7-day discussion phase.  
+  3. On-chain vote ? requires quorum = 5%.  
+- **Treasury:** Funds development and rewards through dynamic VSP issuance.  
+- **Transparency:** All bounty transactions logged publicly.
+
+---
+
+## 13. Security and Anti-Manipulation
+
+- **Circular References Blocked:** Prevent self-support loops.  
+- **Stake Decay:** Idle stakes lose small value to discourage spam.  
+- **Identity Neutral:** Wallet-based accounts, optional DID integration.  
+- **Audit Trail:** Immutable blockchain record for all edits and stakes.  
+- **AI Anomaly Detection:** Identifies suspicious voting or stake bot patterns.
+
+---
+
+## 14. Future Work
+
+- **Cross-chain staking and bridging (ETH, SOL, SVM).**  
+- **Integration with decentralized storage (Arweave, IPFS).**  
+- **Advanced relation analytics (network topology of truth).**  
+- **AI prediction synthesis�dynamic truth forecasting.**  
+
+---
+
+## 15. Conclusion
+
+VeriSphere transforms the internet�s information economy into a **truth economy**.  
+By merging staking mechanics, prediction markets, and AI-assisted consensus, it rewards accurate knowledge and penalizes misinformation�without central authority.  
+
+**The game of truth is open. The stakes are real.**  
+
+**Website:** [verisphere.co](https://verisphere.co)  
+**Repository:** [github.com/VeriSphereVSP/core](https://github.com/VeriSphereVSP/core)
