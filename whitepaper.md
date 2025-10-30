@@ -80,7 +80,7 @@ $$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clam
 **Posting threshold rule:** VS remains **0** until **external stake ≥ posting fee**; then the fee is activated and included in \(A\) or \(D\) (depending on side) for VS.
 
 ### 5.3 Relations
-- A **Relation** is a directed edge \(R: S \to A\) with type \(t \in \{+1\ \text{(support)}, -1\ \text{(challenge)}\}\).  
+- A **Relation** is a directed edge $ R: S \to A\) with type \(t \in \{+1\ \text{(support)}, -1\ \text{(challenge)}\} $.  
 - Each relation has **contextual votes** (up/down) within the target \(A\)’s context and also exists as its **own standalone post** (the “link post”) with independent staking.  
 - **No circular references**: attempts to create cycles are rejected at the protocol level.
 
