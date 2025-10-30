@@ -8,11 +8,14 @@
 ---
 
 ## 1. Abstract
-VeriSphere turns knowledge validation into a decentralized staking game powered by the VSP token. Users publish claims and stake **for** (support) or **against** (challenge) them. Stakes that align with evolving consensus **earn newly minted VSP**; stakes that misalign are **burned**. Relations between claims (supports/challenges) propagate influence through a **stake-weighted knowledge graph**, yielding a continuous **Verity Score (VS)** per claim.
 
-**Fees are pegged to gold, not USD.** At launch, posting costs **1 VSP**, and 1 VSP ≈ \$1 ≈ **~1/4000 oz of gold**. Thereafter, the protocol adjusts the number of VSP burned so that posting always costs that **same weight of gold**—independent of VSP/USD moves.
+VeriSphere is a decentralized knowledge-staking protocol that turns truth discovery into a competitive economic game. Users make claims, challenge claims, and **stake VSP tokens** to signal confidence — earning when they align with consensus and burning when they don’t. In short: **put your money where your mouth is**.
 
-The system is **protocol-first** and modular. The on-chain protocol and open APIs ship first; the UI/AI application layer is optional and replaceable, enabling third-party clients to compete on UX while sharing a common, verifiable truth substrate.
+Unlike content platforms that rely on moderators or opaque algorithms, VeriSphere is driven by open incentives and transparent math. Every assertion is a post on-chain; every agreement or challenge is backed by stake; and evidence can be linked between posts with contextual staking to strengthen or weaken claims. Accurate, well-supported ideas gain visibility and earn rewards. Weak or false claims lose stake and fade.
+
+The fee to publish stays pegged to a fixed weight of gold, preserving stable participation costs as token value fluctuates. Unstaked tokens decay slowly to encourage active truth-seeking, not passive holding. Governance operates inside the same mechanism — meaning protocol upgrades, parameters, and bounties are decided by staking behavior, not foundation decree.
+
+VeriSphere defines a new model for trust on the internet: a **market for truth** where information competes, consensus emerges economically, and users are rewarded for being right — not loudest.
 
 ---
 
