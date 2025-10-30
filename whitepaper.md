@@ -88,23 +88,78 @@ In a world of noise and narrative, VeriSphere introduces **economic gravity** to
 
 ## 2. System Overview
 
-| Component | Function |
-|---|---|
-| Claims | User-posted assertions |
-| Stakes | Support or challenge positions on claims |
-| Verity Score | Score reflecting weighted belief of stakers |
-| Link Relations | Evidence relations between claims |
-| Token (VSP) | Minted for correct staking, burned for incorrect |
-| Governance | Rules modifiable through in-game staking consensus |
-| Interfaces | Web + API. Anyone can build a client. |
+VeriSphere is a truth-staking protocol where information is expressed as **atomic claims**, called *posts*. Each post is a single, standalone assertion stated as clearly and conclusively as possible — no narrative, no multi-point arguments, no hedging. Examples:
 
-Gameplay loop:  
-1. Post or find a claim  
-2. Stake support or challenge  
-3. Link supporting or opposing claims  
-4. Earn if aligned with truth consensus, lose if not  
+- “Vaccines reduce the risk of severe COVID-19.”
+- “Nuclear energy is safer per kWh than coal.”
+- “Ethereum will surpass Bitcoin in market capitalization.”
 
-Truth survives because **bad bets cost money**.
+Every post is a discrete unit of truth-competition.
+
+### Posting
+Any player can publish a new claim.  
+Publishing burns a small fee, ensuring posts represent meaningful assertions rather than noise.
+
+Posts are immutable — if a user wishes to revise or clarify, they publish a **new post** and may link it to the original.
+
+### Supporting & Challenging
+Players stake VSP to either:
+
+- **Support** a post  
+  (assert the claim is true, or directionally correct)
+
+- **Challenge** a post  
+  (assert the claim is false, misleading, overstated, or wrong)
+
+Outcome:
+
+- If you're aligned with the long-term truth consensus, your stake grows.
+- If you're wrong, your stake shrinks or is burned.
+
+Supporting a claim is akin to saying:  
+> “I believe this is true — confidently enough to risk capital.”
+
+Challenging a claim means:  
+> “I believe this is false — and I'm willing to bet against it.”
+
+### Linking Evidence in Context
+Discussion is not free-form argumentation.  
+**Comments are themselves claims**.
+
+When you “comment” on a post, you are creating (or referencing) another atomic post and **linking it as evidence**:
+
+- Support link: strengthens the parent post
+- Challenge link: undermines the parent post
+
+Example:
+
+Post A: “Nuclear energy has the lowest mortality per kWh.”
+
+A user adds:
+
+Post B: “Data from Our World in Data confirms nuclear fatalities are lowest per TWh.”
+
+And links B → A as support.
+
+Each link has its own stake and can itself be supported or challenged, meaning:
+
+- Posts have independent truth scores
+- Links have independent credibility
+- Contextual links combine with standalone truth to calculate influence
+
+This creates a **web of evidence**, rather than a comment section.
+
+### Continuous Truth Pressure
+Posts never “resolve.”  
+Truth emerges over time — not by vote but by **economic competition**.
+
+- Strong claims accumulate capital, evidence, and network reinforcement
+- Weak claims lose stake and visibility
+- New evidence can overturn long-held beliefs
+- All incentives favor clarity, precision, and accountability
+
+VeriSphere is a **market for truth**, where the scoreboard is capital at risk and correctness over time.
+
 
 ---
 
