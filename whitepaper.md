@@ -90,8 +90,8 @@ $$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clam
 
 $$ \text{Pol}(R \to A) = \frac{U_A - D_A}{U_A + D_A + \varepsilon} \in (-1, +1) $$
 
-  where \(U_A, D_A\) are contextual up/down weights (in VSP or normalized units), \( \varepsilon > 0 \).  
-- **Link credibility:** $$ \( nVS(\text{LinkPost}_R) = \frac{\text{BaseVS}(\text{LinkPost}_R) + 100}{200} \) $$. 
+  where $U_A, D_A$ are contextual up/down weights (in VSP or normalized units), $ \varepsilon > 0 $.  
+- **Link credibility:** $ nVS(\text{LinkPost}_R) = \frac{\text{BaseVS}(\text{LinkPost}_R) + 100}{200} $. 
 - **Size dampening:**  
   $$
   \text{Damp}(R) = \frac{1}{1 + \lambda \cdot \ln(1 + \text{LinkTotal}_R)} 
