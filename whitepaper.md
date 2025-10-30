@@ -9,7 +9,7 @@
 
 ## 1. Abstract
 
-VeriSphere is a decentralized knowledge-staking protocol that turns truth discovery into a competitive economic game. Users make claims, challenge claims, and **stake VSP tokens** to signal confidence — earning when they align with consensus and burning when they don’t. In short: **put your money where your mouth is**.
+VeriSphere is a decentralized knowledge-staking protocol that turns truth discovery into a competitive economic game. Users make claims, challenge claims, and **stake VSP tokens** to signal confidence — earning when they align with consensus and burning when they don’t. In short: it's the game of **put your money where your mouth is**.
 
 Unlike content platforms that rely on moderators or opaque algorithms, VeriSphere is driven by open incentives and transparent math. Every assertion is a post on-chain; every agreement or challenge is backed by stake; and evidence can be linked between posts with contextual staking to strengthen or weaken claims. Accurate, well-supported ideas gain visibility and earn rewards. Weak or false claims lose stake and fade.
 
