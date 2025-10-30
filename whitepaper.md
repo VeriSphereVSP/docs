@@ -92,11 +92,6 @@ $$ \text{Pol}(R \to A) = \frac{U_A - D_A}{U_A + D_A + \varepsilon} \in (-1, +1) 
 
   where $U_A, D_A$ are contextual up/down weights (in VSP or normalized units), $ \varepsilon > 0 $.  
 - **Link credibility:** $ nVS(\text{LinkPost}_R) = \frac{\text{BaseVS}(\text{LinkPost}_R) + 100}{200} $. 
-- **Size dampening:**  
-  $$
-  \text{Damp}(R) = \frac{1}{1 + \lambda \cdot \ln(1 + \text{LinkTotal}_R)} 
-  $$
-  with $\lambda > 0$ governed, and $\text{LinkTotal}_R$ = standalone link votes + sum of contextual votes network-wide.
 
 ### 5.5 Relation Contribution
 $$
