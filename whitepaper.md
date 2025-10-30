@@ -87,11 +87,11 @@ $$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clam
 ### 5.4 Influence Components
 - **Source normalization:** \( nVS(S) = \frac{\text{BaseVS}(S) + 100}{200} \in [0,1] \).  
 - **Context polarity (A’s context):**  
-  \[
-  \text{Pol}(R \to A) = \frac{U_A - D_A}{U_A + D_A + \varepsilon} \in (-1, +1)
-  \]
+
+$$ \text{Pol}(R \to A) = \frac{U_A - D_A}{U_A + D_A + \varepsilon} \in (-1, +1) $$
+
   where \(U_A, D_A\) are contextual up/down weights (in VSP or normalized units), \( \varepsilon > 0 \).  
-- **Link credibility:** \( nVS(\text{LinkPost}_R) = \frac{\text{BaseVS}(\text{LinkPost}_R) + 100}{200} \).  
+- **Link credibility:** $$ \( nVS(\text{LinkPost}_R) = \frac{\text{BaseVS}(\text{LinkPost}_R) + 100}{200} \) $$. 
 - **Size dampening:**  
   \[
   \text{Damp}(R) = \frac{1}{1 + \lambda \cdot \ln(1 + \text{LinkTotal}_R)} 
