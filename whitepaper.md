@@ -75,7 +75,7 @@ Interfaces (including the reference site and any third-party app) read the same 
 - **T:** **A + D** (includes activated posting fee once threshold is met)
 
 ### 5.2 Base Verity Score
-$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clamped to }[-100,+100]\text{)} $
+$$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clamped to }[-100,+100]\text{)} $$
 
 **Posting threshold rule:** VS remains **0** until **external stake ≥ posting fee**; then the fee is activated and included in \(A\) or \(D\) (depending on side) for VS.
 
