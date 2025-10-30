@@ -85,7 +85,7 @@ $$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clam
 - **No circular references**: attempts to create cycles are rejected at the protocol level.
 
 ### 5.4 Influence Components
-- **Source normalization:** \( nVS(S) = \frac{\text{BaseVS}(S) + 100}{200} \in [0,1] \).  
+- **Source normalization:** $ nVS(S) = \frac{\text{BaseVS}(S) + 100}{200} \in [0,1] $.  
 - **Context polarity (A’s context):**  
 
 $$ \text{Pol}(R \to A) = \frac{U_A - D_A}{U_A + D_A + \varepsilon} \in (-1, +1) $$
