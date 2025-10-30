@@ -1,300 +1,193 @@
-# VeriSphere Whitepaper  
-**The Knowledge-Staking Protocol**  
-**Version:** 12.1  
-**Date:** October 29, 2025  
-**Contact:** info@verisphere.co  
-**Repository:** https://github.com/VeriSphereVSP
+# VeriSphere: The Game of Staked Truth — A Decentralized Knowledge Market
+
+**Version:** 11.1  
+**Date:** October 30, 2025  
+**Authors:** VeriSphere Development Team  
+**Contact:** info@verisphere.co
 
 ---
 
-## 1. Abstract
+## Abstract
 
-VeriSphere is a decentralized knowledge-staking protocol that turns truth discovery into a competitive economic game. Users make claims, challenge claims, and **stake VSP tokens** to signal confidence — earning when they align with consensus and burning when they don’t. In short: it's the game of **put your money where your mouth is**.
+VeriSphere is a decentralized knowledge-staking protocol that turns truth discovery into a competitive economic game. Users make claims, challenge claims, and **stake VSP tokens** to signal confidence — earning when they align with consensus and burning when they don’t. In short: **put your money where your mouth is**.
 
-Unlike content platforms that rely on moderators or opaque algorithms, VeriSphere is driven by open incentives and transparent math. Every assertion is a post on-chain; every agreement or challenge is backed by stake; and evidence can be linked between posts with contextual staking to strengthen or weaken claims. Accurate, well-supported ideas gain visibility and earn rewards. Weak or false claims lose stake and fade.
+Unlike content platforms that rely on moderators or opaque algorithms, VeriSphere is driven by open incentives and transparent math. Every assertion is a post; every agreement or challenge is backed by stake; and evidence can be linked between posts with contextual staking to strengthen or weaken claims. Accurate, well-supported ideas gain visibility and earn rewards. Weak or false claims lose stake and fade.
 
-The fee to publish stays pegged to a fixed weight of gold, preserving stable participation costs as token value fluctuates. Unstaked tokens decay slowly to encourage active truth-seeking, not passive holding. Governance operates inside the same mechanism — meaning protocol upgrades, parameters, and bounties are decided by staking behavior, not foundation decree.
+All protocol fees (e.g., the posting fee) are **pegged to a fixed weight of gold**, not USD. At launch, the posting fee equals the value of **~1/4000 oz. of gold** (≈ $1 at that time), and remains that same gold weight thereafter, regardless of VSP’s market price.
 
-VeriSphere defines a new model for trust on the internet: a **market for truth** where information competes, consensus emerges economically, and users are rewarded for being right — not loudest.
-
----
-
-## 2. Purpose & Motivation
-Centralized knowledge systems lack aligned incentives:
-
-- No cost to publish falsehood; limited rewards for accuracy.  
-- Slow correction; static pages; editorial bottlenecks and bias.  
-- Disconnected prediction markets; no durable, stake-weighted consensus.
-
-**VeriSphere’s design principle:** make being wrong **costly** and being right **profitable**, so accuracy emerges from market pressure rather than editorial authority.
+Governance operates inside the same mechanism — protocol upgrades, parameters, bounties, and payments are proposed and decided by staking behavior, not foundation decree.
 
 ---
 
-## 3. System Overview
-A user creates a **claim** (a post). Others **stake** VSP to **support** or **challenge** it. Claims can be connected via **relations** (supports/conflicts) that also carry stake. From these primitives the protocol derives:
+## 1. Purpose & Motivation
 
-- **Base Verity Score (BaseVS):** stake-weighted confidence for a claim.  
-- **Derived Verity Score (DerivedVS):** BaseVS plus stake-weighted influence from linked evidence.  
-- **Visibility:** a ranking signal combining conviction and “skin in the game”.
-
-Interfaces (including the reference site and any third-party app) read the same public state and formulas via open APIs/SDKs.
+- **Problem:** Information systems reward volume and virality, not accuracy.  
+- **Approach:** Convert claims into **stakeable propositions** with explicit economic outcomes.  
+- **Goal:** A market for truth where signal (accuracy under challenge) outcompetes noise.
 
 ---
 
-## 4. Tokenomics & Economics
+## 2. Roles & Objects
 
-### 4.1 VSP Token
-- Utility: staking, fee burning, governance.  
-- Supply: dynamic via **mint/burn** tied to staking outcomes.  
-- Net issuance/deflation is emergent from market accuracy and participation.
-
-### 4.2 Reward/Burn Dynamics
-- **Aligned stake mints VSP**; **misaligned stake burns VSP**.  
-- Incentives taper with post “depth”: early, under-staked claims earn higher marginal rewards; heavily staked claims earn near the floor.
-
-**Launch parameters (governable):**
-- **Max reward rate:** **10 ×** the U.S. **10-Year Treasury yield (10YUST)**.  
-- **Min reward rate:** **1/10 × 10YUST**.  
-- Interpolation: reward rates decrease from max → min as total stake depth increases.
-
-**Unstaked balances decay:** VSP **held idle** (not staked) **burns at the minimum rate** to incentivize active participation and constrain passive inflation.
-
-### 4.3 Fees Pegged to Gold (Not USD)
-- **Posting fee** is **burned** in VSP at a value pegged to a **fixed weight of gold** (≈ **1/4000 oz** at launch).  
-- Over time, the **VSP amount adjusts** so the fee’s **gold weight** stays constant—regardless of VSP/USD price.
-
-**Engagement threshold:** The posting fee is **remembered** but **does not affect VS** until **external stake (support+challenge) ≥ posting fee**. Once this threshold is met, the remembered fee is activated as stake for VS calculations. Until then, **VS = 0**.
+- **Post (Claim/Assertion):** A single, verifiable statement.  
+- **Stake:** VSP locked **for** or **against** a post (or link) to express confidence.  
+- **Relation (Link):** A directed edge from a source post to a target post, typed as **support** or **challenge**.  
+- **Contextual Staking:** Additional stake placed **on the link within a specific context** (the target thread).  
+- **Verity Score (VS):** A post’s confidence metric derived from stake and linked evidence.
 
 ---
 
-## 5. Verity Score & Relation Mechanics
+## 3. Economic Primitives & Fees (Gold-Peg)
 
-### 5.1 Notation
-- **A:** total VSP **support** stake on a claim  
-- **D:** total VSP **challenge** stake on a claim  
-- **T:** **A + D** (includes activated posting fee once threshold is met)
-
-### 5.2 Base Verity Score
-$$ \mathrm{BaseVS} = \left(2 \cdot \frac{A}{T} - 1\right)\times 100 \text{ (clamped to }[-100,+100]\text{)} $$
-
-**Posting threshold rule:** VS remains **0** until **external stake ≥ posting fee**; then the fee is activated and included in \(A\) or \(D\) (depending on side) for VS.
-
-### 5.3 Relations
-- A **Relation** is a directed edge $R: S \to A$ with type $t \in \{+1\ (\text{support}), -1\ (\text{challenge})\}$.  
-- Each relation has **contextual votes** (up/down) within the target \(A\)’s context and also exists as its **own standalone post** (the “link post”) with independent staking.  
-- **No circular references**: attempts to create cycles are rejected at the protocol level.
-
-### 5.4 Influence Components
-- **Source normalization:** $ nVS(S) = \frac{\text{BaseVS}(S) + 100}{200} \in [0,1] $.  
-- **Context polarity (A’s context):**  
-
-$$ \text{Pol}(R \to A) = \frac{U_A - D_A}{U_A + D_A + \varepsilon} \in (-1, +1) $$
-
-  where $U_A, D_A$ are contextual up/down weights (in VSP or normalized units), $ \varepsilon > 0 $.  
-- **Link credibility:**  
-  nVS(LinkPost_R) = (BaseVS(LinkPost_R) + 100) / 200   # maps -100..100 → 0..1
- 
-
-### 5.5 Relation Contribution
-$$
-\text{Contrib}(R \to A) = t \cdot nVS(S) \cdot \text{Pol}(R \to A) \cdot nVS(\text{LinkPost}_R) \cdot \text{Damp}(R)
-$$
-
-### 5.6 Derived Verity & Visibility
-$$
-\text{DerivedVS}(A) = \text{clamp}\big(\text{BaseVS}(A) + \alpha \cdot \sum_{R:\ * \to A} \text{Contrib}(R \to A),\ -100,\ +100\big)
-$$
-with mixing factor \(\alpha \in (0,1)\), governed (default ≈ 0.2).
-
-**Visibility (interface-oriented ranking):**
-$$
-\text{Visibility}(A) = \text{TotalStake}(A) \times \frac{\text{DerivedVS}(A) + 100}{200}
-$$
-
-```mermaid
-flowchart TB
-
-%% Posts
-A[Post A<br/>Independent Verity Score]
-B[Post B<br/>Independent Verity Score]
-
-%% Link object
-L["Link A → B<br/>Stake on Link<br/>(Support or Challenge)"]
-
-%% Influence Calculation
-subgraph InfluenceCalc["Influence Engine"]
-V_A[Fetch Verity A]
-S_L["Read Stake on Link(A→B)"]
-Dir["Direction<br/>(+1 Support<br/>−1 Challenge)"]
-Multiply["Compute Influence = Verity(A) × Stake × Direction"]
-AddToB["Add Influence to B's Derived Score"]
-end
-
-%% Flows
-A --> V_A
-L --> S_L
-L --> Dir
-V_A --> Multiply
-S_L --> Multiply
-Dir --> Multiply
-Multiply --> AddToB
-B --> AddToB
-AddToB --> FinalB["Post B<br/>Derived Verity Score"]
-
-%% Notes
-%% Only staked links have power.
-%% Circular links are prohibited.
-%% Influence decays naturally if:
-%% - Link has low stake
-%% - A has weak Verity
-%% - Direction opposes consensus
-
-```
-
-### 5.7 Anti-Gaming Rules
-- **No cycles**, enforced on-chain.  
-- **Log dampening** caps single-relation dominance.  
+- **Posting fee:** Burned; pegged to a fixed weight of gold (e.g., ~1/4000 oz at launch).  
+- **Fee memory:** The posting fee is “remembered” and **counts toward the post’s total stake only after the post accumulates ≥ fee in external stake** (either for or against). Until then, the post’s VS remains neutral.  
+- **Unstaked decay:** **Unstaked balances burn at the minimum rate** to discourage passive hoarding and encourage participation.  
+- **On-chain vs. off-chain pricing:** The oracle provides the gold price; the protocol converts the gold-pegged fee into VSP at execution time.
 
 ---
 
-## 6. Gameplay Flow
-1. **Create claim** and **pay fee** (burned; VS remains 0).  
-2. Community **stakes** to support or challenge; when **external stake ≥ fee**, fee activates into VS math.  
-3. Users add **relations** (supports/challenges) and **vote** on links within contexts.  
-4. **VS**, **DerivedVS**, and **Visibility** evolve with every event.  
-5. **Aligned stakes earn** (rate tapers with depth); **misaligned stakes burn**; **idle balances decay** at the minimum rate.
+## 4. Verity Score & Relation Mechanics (No Dampening)
 
-Winning strategies: discover truth **early**, link **strong evidence**, **challenge** weak claims, and **stay engaged**.
+### 4.1 Base Verity Score (per post)
+Let **Up** be stake supporting the post and **Down** be stake challenging it.  
+<code>BaseVS(B) = (2 * Up / (Up + Down) - 1) * 100</code> &nbsp; (clamped to [-100, +100]).
 
----
+Normalized to 0..1 for weighting:  
+<code>nVS(X) = (BaseVS(X) + 100) / 200</code>.
 
-## 7. Architecture & Modularity
+**Activation rule:** <code>BaseVS</code> is treated as **0** until the post’s **external stake ≥ posting fee** (the burned fee is “remembered” only after that threshold).
 
-### 7.1 Two Independent Layers
-| Layer | Role | Notes |
-|---|---|---|
-| **VeriSphere Protocol** | On-chain primitives (posts, stakes, relations, oracle, governance, treasury) + open IDLs; off-chain indexer + deterministic derivations; public REST/GraphQL/WS + SDKs | **Ships first**; UI-independent; open to all clients |
-| **VeriSphere Application Layer** | Reference website, wallet UX, AI-assisted search/synthesis, graph visualizations | Optional, replaceable; **no protocol privilege** |
+### 4.2 Relations (links) and types
+A **Relation** is a directed edge <code>R: S → A</code> with type <code>t ∈ {+1 (support), -1 (challenge)}</code>.  
+- **Standalone link votes**: votes on the link as an independent post (for auditability).  
+- **Contextual link stake**: stake placed on the link **within** a specific target context (thread of A).
 
-### 7.2 On-Chain vs Off-Chain
-| Item | On-Chain | Off-Chain |
-|---|---|---|
-| Post headers & content CIDs | ✅ | — |
-| Stake ledgers, mint/burn events | ✅ | — |
-| Relations & contextual link votes | ✅ | — |
-| Gold-peg oracle values | ✅ | — |
-| Governance objects, timelock, treasury | ✅ | — |
-| Full text, media, embeddings | — | ✅ (IPFS/Arweave/search DB) |
-| Deterministic DerivedVS/Visibility | — | ✅ (versioned formulas) |
-| Public APIs/SDKs, caching, rate limits | — | ✅ |
-| AI query/summarization | — | ✅ (UI layer only) |
+### 4.3 Link influence on a context
+Each link contributes influence to the target proportional to **(i)** the credibility of its source post and **(ii)** the stake on that link in the current context, signed by its type.
 
-```mermaid
-flowchart TB
+- **Source credibility:**  
+  <code>Cred(S) = nVS(S)</code>.
 
-%% Layer labels
-subgraph CoreProtocol["Core Protocol (Decentralized, On-Chain)"]
-CP1["Verity Contract<br/>Stake + Burn/Mint Logic"]
-CP2["Relation Contract<br/>Link Registry + Context Stake"]
-CP3["Governance Contract<br/>Param Updates + Bounty Votes"]
-CP4["Gold Oracle<br/>(Fee Peg to Gold Weight)"]
-end
+- **Contextual stake on link R:**  
+  <code>StakeOnLink<sub>R,A</sub></code> (stake staked on R **in the context of A**).
 
-subgraph OffChainInfra["Off-Chain Compute Layer"]
-OC1["Indexing + Graph Assembly<br/>Multi-Context Verity Score"]
-OC2["Content Storage<br/>IPFS / Arweave Metadata"]
-OC3["AI Verity Router<br/>Search + Source Comparison + Overrides"]
-end
+- **Per-link influence on A:**  
+  <code>Influence<sub>R→A</sub> = α * Cred(S) * StakeOnLink<sub>R,A</sub> * t</code>, where <code>α &gt; 0</code> is a governed scaling factor mapping stake units to VS points.
 
-subgraph Interfaces["Client & Integration Layer"]
-UI["Official UI / verisphere.co"]
-CLI["Developer CLI & SDK"]
-API["Open API Gateway"]
-ThirdParty["3rd Party UIs, Research Tools, Bots"]
-end
+- **Derived Verity Score of A (with links):**  
+  <code>DerivedVS(A) = clamp( BaseVS(A) + Σ<sub>R: *→A</sub> Influence<sub>R→A</sub>, -100, +100 )</code>.
 
-%% Connections
-CP1 --> OC1
-CP2 --> OC1
-CP3 --> OC1
-OC1 --> UI
-OC1 --> CLI
-OC1 --> API
-API --> ThirdParty
-AI["External AI Models"] --> OC3 --> UI
-OC1 --> OC3
-OC2 --> UI
-
-```
+**Notes:**  
+- A link is **itself** a post that can be up/downvoted outside any single context; those votes inform its standalone visibility/audit trail, but **only the contextual stake** enters the influence formula above.  
+- **Circularity is prohibited:** links that (directly or indirectly) create cycles are rejected at validation.
 
 ---
 
-## 8. AI-Assisted Knowledge Surfacing (UI Layer Only)
-AI improves discovery and readability but **never** substitutes for economic consensus.
+## 5. Staking Dynamics, Yields & Burns
 
-- Parse user intent; retrieve claims/relations.  
-- Summarize the **staked** consensus with explicit stake metrics.  
-- Suggest new claims or relations; user signs any on-chain action.  
-- Cite sources; show VS/DerivedVS/Visibility transparently.
-
----
-
-## 9. Governance (Run “Inside the Game”)
-
-### 9.1 Proposals as On-Chain Posts
-- Any change (params, upgrades, spends) is a **governance post** with an executable payload (e.g., “upgrade program X to ID Y”, “set \(\alpha = 0.25\)”, “pay N VSP to address A”).  
-- Windows: start/end slot, quorum, thresholds are governed parameters.
-
-### 9.2 Voting by Staking
-- Stake **support/challenge** on the governance post, just like any claim.  
-- Weighting methods (e.g., stake aging, minimum holding windows) are governed and transparent.
-
-### 9.3 Timelock & Execution
-- Passed proposals enter a **timelock** (e.g., 48–120h).  
-- After timelock, the **governance executor** performs the encoded action.
-
-### 9.4 Bounties, Approvals, Payments
-- A **bounty** is a special governance object with **escrow**, scope, and acceptance criteria.  
-- Contributors submit **deliverable posts** linked to the bounty; evaluators **stake** whether acceptance criteria are met.  
-- Upon reaching thresholds, the **treasury pays** winners in VSP (mint or disburse).  
-- Disputes spawn **counter-proposals**; all flows are **on-chain and auditable**.
+- **Rate band (governed, defined at launch):**  
+  - **Maximum staking yield:** <code>10 ×</code> the **US 10-Year Treasury Note** rate (10YUST).  
+  - **Minimum staking yield / burn:** <code>0.1 ×</code> 10YUST.  
+- **Unstaked decay:** Unstaked balances decay at the **minimum rate**.  
+- **Aligned vs. misaligned:**  
+  - Aligned stake (with positive <code>DerivedVS</code>) mints at the governed rate.  
+  - Misaligned stake burns at the governed rate.  
+- **Adversarial participation multiplier (anti-isolation):**  
+  Uncontested or trivially isolated posts earn **negligible or zero** staking yield. Yield scales up with meaningful opposing stake (parameterized multiplier, governed).  
+- **Reallocation:** Stake can be moved at will (subject to standard lock/settlement rules) to adapt to new evidence.
 
 ---
 
-## 10. Roadmap
-| Phase | Deliverables |
-|---|---|
-| **Protocol Alpha** | Programs (posts, stakes, relations, oracle, governance, treasury); testnet; IDLs; SDKs; indexer |
-| **Protocol Beta** | Mainnet; public APIs; reproducible `influence_v1` |
-| **Ecosystem Launch** | Third-party clients; dashboards; analytics; grants/bounties |
-| **Official Application** | Reference website, graph explorer, wallet UX, AI assistant |
-| **Scale** | Parameter tuning via governance; multi-oracle resilience; additional language/tooling support |
+## 6. Visibility & Discovery
+
+- **Visibility score:**  
+  <code>Visibility(A) = TotalStake(A) * (DerivedVS(A) + 100) / 200</code>.  
+  High-stake, high-verity posts rank higher; low-stake or controversial posts are visible but lower in default views.
+
+- **Atomic incentive rule:**  
+  The protocol does not police wording length. However, **any participant may isolate and challenge a single assertion** embedded in a multi-assertion post. Because isolated challenges dilute the original post’s defense efficiency, **rational players publish atomic (single-assertion) posts**.
 
 ---
 
-## 11. Security & Integrity
-- Wallet-signed writes; replay protection; program audits.  
-- Oracle signer allow-list + optional medianization; upgradable via governance.  
-- Anti-sybil & anomaly detection off-chain; transparent gates if adopted.  
-- Deterministic, versioned derivations; reproducible from chain logs.  
-- No protocol censorship; **Visibility** emerges from stake.
+## 7. Game Integrity & Anti-Exploitation
+
+**Threat:** Isolated inflation loops (self-posting and self-staking without engagement).  
+**Mitigations built in:**
+1. **Posting fee (gold-pegged) burned** — real cost to spam.  
+2. **Activation threshold** — VS remains neutral until external stake ≥ fee.  
+3. **Unstaked burn** — passive hoarding is penalized.  
+4. **Adversarial multiplier** — **negligible/zero yield** if no meaningful opposing stake.  
+5. **Challenge incentives** — others profit by challenging weak posts, making isolation negative-EV.
+
+**Outcome:** Profit requires surviving **contest**, not merely posting in isolation.
 
 ---
 
-## 12. Conclusion
-VeriSphere creates a **self-correcting, economically optimized truth market**. Claims compete on capital-backed conviction; relations propagate evidence across a living graph; governance itself runs through the same staking game. Fees are **gold-pegged** for durable, real-world cost stability; **idle balances decay** to encourage active truth-seeking.
+## 8. Governance Inside the Game
 
-The **Protocol ships first**—open, audited, and UI-agnostic—so anyone can build interfaces. In VeriSphere, **accuracy becomes profitable** and **misinformation becomes costly**.
-
----
-
-## Appendix: Parameter Summary (Governable)
-- Posting fee: fixed **gold weight** (~1/4000 oz at launch), VSP amount adjusts with oracle.  
-- Reward rate bounds: **max = 10× 10YUST**, **min = 0.1× 10YUST**.  
-- Idle burn: **unstaked balances burn at min rate**.  
-- Influence parameter: threshold rule.  
-- Governance windows: quorum, thresholds, timelock durations.  
-- Oracle providers and averaging windows.
+- **Mechanism:** Governance proposals are posts; approving or rejecting them is done by staking **for** or **against**.  
+- **Scope:** Protocol parameters (e.g., <code>α</code>, rate band, activation thresholds), oracle/collation policies, fee weight, integration changes, treasury rules.  
+- **Bounties & Payments:** Work items are posted as bounty proposals; acceptance and payout are triggered by on-chain governance outcomes.  
+- **Safeguards (bootstrapping phase):** Minimal guardian controls (pause/rollback) with a predefined sunset via governance to avoid ossification.  
+- **Norm:** “Those confident enough to stake are those qualified to decide.”
 
 ---
 
+## 9. Architecture: Core vs. Interface
+
+### 9.1 Core Protocol (Public API)
+**On-chain (Solana):**
+- Posts, links, stake positions, VS state roots, governance proposals, bounty state, fee logic (gold-peg via oracle), circularity checks.
+
+**Off-chain (but protocol-critical) services:**
+- Oracle adapters (gold pricing, 10YUST), indexers, proof generators (if used for rollups/accumulators).  
+- Public **Core API** (gRPC/REST) exposing read endpoints (graph, scores, histories) and transaction builders.
+
+**Guarantees:** Deterministic state, verifiable transitions, public data accessibility.
+
+### 9.2 Interface Layer (Independent Clients)
+- Web app(s), mobile apps, CLI, research tools.  
+- AI collation, summarization, and UX guidance live **outside** the core and consume the **Core API**.  
+- Third parties can build their own clients; no dependency coupling to the official UI.
+
+---
+
+## 10. On-Chain vs. Off-Chain Data
+
+- **On-chain:** Identifiers, hashes, stake amounts, VS values/roots, relations, governance metadata, fee execution, payouts.  
+- **Off-chain:** Full text bodies, AI features, analytics, large attachments, mirrors/cache layers.  
+- **Integrity:** Off-chain content is referenced by on-chain hashes; clients verify integrity before display.
+
+---
+
+## 11. Security, Safety & Constraints
+
+- **Cycle rejection:** Any relation that would create a cycle is rejected.  
+- **Reorg/latency handling:** Clients display provisional VS until finalization depth.  
+- **Sybil resistance:** Economic skin-in-the-game plus adversarial multiplier; optional allowlists or reputation modules are pluggable without changing core math.  
+- **Upgradability:** Governance-gated program upgrades; migration plans published as proposals with rollback windows.
+
+---
+
+## 12. Launch Parameters (Governed, Editable Later)
+
+- Posting fee: fixed **gold weight** (~1/4000 oz at launch).  
+- Rate band: **max = 10 × 10YUST**, **min = 0.1 × 10YUST**.  
+- Scaling factor: <code>α</code> > 0 (initial value set conservatively).  
+- Adversarial multiplier: default yields **0** if opposing stake &lt; threshold; scales to 1 as contest deepens.  
+- Unstaked burn: enabled at **minimum rate**.
+
+---
+
+## 13. Roadmap
+
+- **Q4 2025:** Core contracts (posts, stake, links, governance), indexer, oracle bridge, public read API.  
+- **Q1 2026:** Core open beta; bounty-driven development; third-party client docs.  
+- **Q2 2026:** First-party UI/AI client launch; integrations and ecosystem incentives.
+
+---
+
+## 14. License & Attribution
+
+Open-source under a permissive license (to be finalized by governance).  
+© 2025 VeriSphere Development Team.
