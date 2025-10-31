@@ -160,7 +160,6 @@ Truth emerges over time — not by vote but by **economic competition**.
 
 VeriSphere is a **market for truth**, where the scoreboard is capital at risk and correctness over time.
 
-
 ---
 
 ## 3. Posting & Staking Mechanics
@@ -168,116 +167,113 @@ VeriSphere is a **market for truth**, where the scoreboard is capital at risk an
 ### 3.1 Posting
 
 - Any player may publish a single atomic assertion, called a Post.
-- Each Post must contain only one claim.
+- Each Post must contain exactly one claim.
 - Publishing a Post requires a gold-pegged fee (burned).
 - A Post begins at Verity Score (VS) = 0 until total stake on the Post (support or challenge) reaches at least the posting fee.
-- The posting fee does not earn yield, but does count toward total stake, once additional stake reaches the fee threshold.
-- Posts cannot be edited; corrections must be posted as new Posts and linked.
+- The posting fee does not earn yield, but does count toward total stake once additional stake reaches the fee threshold.
+- Posts cannot be edited; corrections require a new Post linked to the original.
 
 ### 3.2 Staking on Claims
 
 Players may stake VSP to either:
+- support a Post (assert it is true), or
+- challenge a Post (assert it is false)
 
-- Support a Post (assert it is true), or
-- Challenge a Post (assert it is false)
-
-Stake can be:
-
-- Added incrementally
-- Withdrawn (with position effects, see below)
-- Flipped from support to challenge or vice-versa
-
-Stakes earn or lose value depending on whether they align with the Post's consensus truth, as represented by Verity Score.
+Staking rules:
+- Stake may be added or withdrawn (affecting stake positions)
+- Stake may be flipped from support to challenge or vice-versa
+- Stake earns or burns value based on alignment with consensus truth
 
 ### 3.3 Verity Score (VS)
 
-The Verity Score measures consensus belief in a Post:
+VS measures consensus belief in a Post.
 
-VS = (2 × (support stake ÷ total stake) − 1) * 100
+Formula:
+VS = (2 * (support stake / total stake) - 1) * 100
 
 Range:
++100 = universal belief the claim is true  
+0 = unclear or split  
+-100 = universal belief the claim is false  
 
-- +100 means total belief that the claim is true
-- 0 means unclear or split
-- −100 means total belief the claim is false
-
-VS continuously updates as stakes change.
+VS updates continuously with staking.
 
 ### 3.4 Positional Staking System
 
-Stake on each side forms a queue ordered by arrival time.
+Stakes on each side form a queue by arrival time. Earlier stakes have more influence and more upside/downside.
 
-Principles:
+Rules:
+- Earlier stake = higher risk and higher reward
+- Later stake = lower risk and lower reward
+- When earlier stake is removed, later stake moves forward in queue
 
-- Earlier stake carries higher risk and higher reward.
-- Earlier stake loses more when wrong and earns more when right.
-- Later stake earns less and loses less, creating lower-risk entry as claims mature.
-- When stake is removed, later stake shifts forward to occupy earlier positions.
+Incentives:
+- Early honest conviction is rewarded
+- Early reckless conviction is punished
+- Opportunistic "wait-and-snipe" is discouraged
 
-This system incentivizes:
+### 3.5 Yield and Burn Mechanics
 
-- Early honest conviction
-- Discouraging opportunistic “wait-and-snipe” behavior
-- Allowing corrective flips when falsehoods accumulate stake
-- Meaningful capital commitment to defend claims
-
-### 3.5 Reward and Loss Distribution
-
-Rewarding aligned stake:
-
-- A stake earns yield proportional to its position weight, VS magnitude, and total stake magnitude.
-- Higher VS and higher total stake means higher trust premium for aligned stake holders.
-
-Penalizing misaligned stake:
-
-- Misaligned stake burns value at the same curve as aligned stake earns.
-- Early wrong conviction loses the most, discouraging reckless claims.
+Aligned stake earns yield. Misaligned stake burns.
 
 If VS = 0:
+- No gains or losses
+- Encourages market discovery before conviction
 
-- Neither side earns or loses, encouraging discovery staking until clarity emerges.
+Unstaked balances decay at the minimum rate to discourage passive ambush capital.
 
-### 3.6 Economic Function
+### 3.6 Formal Staking Reward Formula
 
-This creates dynamic information markets where:
+Variables:
+n = your stake amount  
+VS = Verity Score (-100 to +100)  
+v = |VS| / 100  (normalizes VS to 0-1)  
+T = total stake on the post  
+R_max = max annual rate (governed)  
+R_min = min annual rate (governed)  
+K > 0 = maturity constant (governed)  
+alpha >= 0 = position steepness exponent (governed)  
+delta_t = time period in years (e.g., 1/365)
 
-- Early correct stakers gain the most.
-- Early wrong stakers lose the most.
-- Late stakers profit modestly but with lower risk.
-- Weak claims can be flipped by coordinated challenge capital.
-- Strong true claims become economically “fortified”.
-- Strong false claims leak value until corrected.
+Alignment sign:
+sgn = +1 if you are on side of sign(VS)
+sgn = -1 if you oppose sign(VS)
+sgn = 0 if VS = 0
 
-Unstaked balances degrade at the minimum burn rate to discourage passive ambush (holding tokens idle to snipe emerging claims without exposure).
+Maturity function:
+f(T) = T / (T + K)
 
-### 3.7 Summary of Effects
+Effective rate:
+r_eff = R_min + (R_max - R_min) * v * f(T)
 
-This mechanism rewards:
+Positional weight:
+For stake position i (1 is earliest):
+raw weight(i) = 1 / (i ^ alpha)
+normalized weight w_i = raw weight(i) / sum(raw weight(j) for j = 1..N)
 
-- Truth-seeking
-- Early, honest conviction
-- Continuous monitoring
-- Active argumentation
-- Rational participation
+Per-period change:
+If total stake < posting fee or VS = 0, then:
+delta_n = 0
 
-And it penalizes:
+Otherwise:
+delta_n = n * sgn * w_i * r_eff * delta_t
+n_next = max(0, n + delta_n)
 
-- Dishonesty
-- Reckless assertion
-- Passive speculation
-- Manipulative capital ambush tactics
+Unstaked VSP decay:
+U_next = U * (1 - R_min * delta_t)
 
-The economy remains self-correcting because:
+### 3.7 Economic Dynamics
 
-- Capital must take risk to earn reward.
-- Claims cannot be dominated by passive money.
-- False claims bleed value until corrected.
-- Truth earns yield by surviving challenge over time.
+- Early correct stakers gain most
+- Early wrong stakers lose most
+- Late entrants have lower risk and lower reward
+- False claims leak capital until corrected
+- True claims become fortified by capital
 
+### 3.8 Launch Parameters (governed)
 
-**Rates at launch** (governance-changeable):  
-- Max return = **10× US 10-Year Treasury**
-- Min return = **1/10 × US 10-Year Treasury**
+R_max = 10 × US 10-year Treasury  
+R_min = 0.1 × US 10-year Treasury
 
 ---
 
@@ -347,32 +343,132 @@ Economic equilibrium emerges through **risk, skill, and truth-seeking behavior**
 
 ---
 
-## 7. Governance
+## 7. Governance Lane (“GP” Namespace)
 
-### 7.1 Inclusive & In-Game
-Governance runs **inside the staking game itself**.  
-Players stake on governance proposals the same way they stake on truth claims.
+Truth discovery and protocol stewardship must coexist but operate under fundamentally different rules.  
+VeriSphere therefore defines two parallel, interoperable lanes:
 
-### 7.2 Proposal Types
-- Change APR bands  
-- Update posting fee formula  
-- Adjust oracle sources  
-- Modify link/tally rules  
-- Define cheat-prevention rules  
-- Allocate bounties  
-- Elect auditors / stewards  
+- **Knowledge Claims (KC):** perpetual, open-ended truth-staking market  
+- **Governance Proposals (GP):** time-bounded, executable protocol decisions
 
-### 7.3 Safeguard Against Sybil / Idle Exploits
-The system naturally deters inflationary “post-farm staking” because:  
-- Posting fee burns value  
-- Unstaked tokens decay  
-- Isolated claims without scrutiny have **no reward path**  
-- Linking encourages cross-validation  
-- Opposition earns by **attacking weak farm claims**
+KC maintains epistemic integrity (“truth never finalizes”).  
+GP provides operational finality (“decisions must finalize”).
 
-False claims are **economically hunted**.
+### 7.1 Governance Goals
+
+Governance exists to:
+
+- Maintain and evolve core protocol parameters
+- Approve upgrades, treasury allocations, and economic changes
+- Support community bounties and ecosystem expansion
+- Preserve long-term credibility and security
+
+Governance is minimally interventionist; the truth market must remain primary.
+
+### 7.2 GP Proposal Lifecycle
+
+Governance proposals are discrete on-chain objects with a structured lifecycle:
+
+1. **Draft**  
+   - Anyone may draft a proposal
+   - Simulated feasibility and economic impact recommended
+
+2. **Activation / Voting Window**  
+   - Fixed time period (e.g., 5–14 days)
+   - **Snapshot voting power** taken at activation to prevent last-minute capital swings
+
+3. **Grace / Timelock**  
+   - Delay between approval and execution  
+   - Allows vetoes, bug disclosures, or emergency pauses
+
+4. **Execution or Expiry**  
+   - Successful proposals **execute automatically on-chain**
+   - Failed proposals expire without effect
+
+### 7.3 Voting Power Models
+
+Governance may mix or evolve weighting models; candidate mechanisms include:
+
+- **Staked VSP weight** (primary default — aligns incentives)
+- **Unstaked balance component** (optional minority weight)
+- **Cred Score multiplier** (performance-based trust derived from KC outcomes)
+- **Quadratic modifier** (optional anti-whale component)
+
+Weights are tunable by governance.
+
+### 7.4 Quorum, Thresholds, and Safeguards
+
+Policy parameters set by governance:
+
+- **Quorum requirement**
+- **Approval threshold**
+- **Turnout guardrails** (min/max to prevent apathy capture)
+- **Proposal deposit / bond** (prevents spam; returned if proposal meets quality threshold)
+
+Emergency controls (rare use only):
+
+- **Circuit breaker / guardian delay**
+- **Global timelock extension**
+
+### 7.5 Executable Authority
+
+Executed proposals can:
+
+- Modify protocol parameters (fee rates, stake mechanics, caps)
+- Manage treasury funds (grants, burns, incentives)
+- Authorize upgrades to core contracts and APIs
+- Assign or revoke governance roles on upgradeability controllers
+- Approve new modules (e.g., L2 bridges, identity oracles)
+
+**All actions are on-chain transactions**, enforceable without off-chain trust.
+
+### 7.6 Interaction With KC Lane
+
+Knowledge staking and governance are related but distinct:
+
+- KC stakes **do not auto-count** in GP unless included in voting formula
+- KC outcomes **do not force protocol changes** (truth ≠ enactment)
+- GP can modify KC parameters but cannot cherry-pick claim outcomes
+
+This separation preserves epistemic independence and market integrity.
+
+### 7.7 Proposal Types
+
+Common governance proposal classes:
+
+- **Parameter changes** (posting fee factor, yield bands, decay rates)
+- **Treasury allocations** (bounties, ecosystem funding)
+- **Protocol upgrades** (logic modules, new staking primitives)
+- **Foundation actions** (partnership approvals, legal governance)
+- **Emergency responses** (halts or mitigations — formalized and auditable)
+
+### 7.8 Governance UI and UX
+
+To maximize legitimacy:
+
+- Proposal templates and on-chain metadata
+- Clear impact visualization and code diffs
+- Voting guides and simulation tools
+- Public audit trails and vote receipts
+- Mobile and desktop wallet coverage
+
+### 7.9 Economic Safeguards
+
+To protect against governance capture:
+
+- **Proposal bonds** to discourage frivolous actions
+- **Staged treasury access** (streaming, vesting, or capped withdrawals)
+- **Slashing or lock-up rules** for malicious governance attempts
+
+Economic resistance complements social consensus and code security.
 
 ---
+
+**Summary:**  
+The Governance Lane enables verifiable, time-bounded, executable decision-making without contaminating the perpetual truth-staking market.  
+KC discovers truth; GP steers the protocol.  
+Both use VSP, both are transparent — but only GP finalizes and executes.
+
 
 ## 8. Architecture
 
