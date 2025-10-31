@@ -166,117 +166,154 @@ VeriSphere is a **market for truth**, where the scoreboard is capital at risk an
 
 ### 3.1 Posting
 
-- Any player may publish a single atomic assertion, called a Post.
-- Each Post must contain exactly one claim.
-- Publishing a Post requires a gold-pegged fee (burned).
-- A Post begins at Verity Score (VS) = 0 until total stake on the Post (support or challenge) reaches at least the posting fee.
-- The posting fee does not earn yield, but does count toward total stake once additional stake reaches the fee threshold.
-- Posts cannot be edited; corrections require a new Post linked to the original.
+- Any player may publish a single **atomic assertion** (“Post”).
+- Each Post must contain only **one claim**.
+- Publishing a Post requires a **gold-pegged fee** (burned).
+- A Post begins at **Verity Score (VS) = 0** until total stake on the Post (support or challenge) reaches at least the posting fee.
+- The posting fee **does not earn yield**, but **does count toward total stake once stake ≥ posting fee**.
+- Posts cannot be edited. Corrections must be made by posting a new Post and linking it.
 
 ### 3.2 Staking on Claims
 
-Players may stake VSP to either:
-- support a Post (assert it is true), or
-- challenge a Post (assert it is false)
+Players may stake VSP to:
 
-Staking rules:
-- Stake may be added or withdrawn (affecting stake positions)
-- Stake may be flipped from support to challenge or vice-versa
-- Stake earns or burns value based on alignment with consensus truth
+- **Support** a Post (assert it is true), or
+- **Challenge** a Post (assert it is false)
+
+Stake can be:
+
+- Added incrementally
+- Withdrawn (affecting queue position)
+- Flipped between support and challenge
+
+Stakes **earn or lose value** depending on alignment with the Post’s Verity Score (VS).
 
 ### 3.3 Verity Score (VS)
 
-VS measures consensus belief in a Post.
+The Verity Score reflects consensus truth-belief in a Post:
 
-Formula:
-VS = (2 * (support stake / total stake) - 1) * 100
+**VS = (2 × (support_stake ÷ total_stake) − 1) × 100**
 
 Range:
-+100 = universal belief the claim is true  
-0 = unclear or split  
--100 = universal belief the claim is false  
 
-VS updates continuously with staking.
+- **+100** = universally believed true  
+- **0** = unclear / contested  
+- **−100** = universally believed false  
+
+VS updates continuously as stakes move.
 
 ### 3.4 Positional Staking System
 
-Stakes on each side form a queue by arrival time. Earlier stakes have more influence and more upside/downside.
+Stake on each side forms a **queue** by arrival time.
 
-Rules:
-- Earlier stake = higher risk and higher reward
-- Later stake = lower risk and lower reward
-- When earlier stake is removed, later stake moves forward in queue
+Principles:
+
+- Earlier stake receives **higher reward when right** and **higher penalty when wrong**.
+- Later stake receives **lower reward** and **lower penalty**.
+- Removing stake causes later stake to **shift forward** into earlier, riskier positions.
 
 Incentives:
-- Early honest conviction is rewarded
-- Early reckless conviction is punished
-- Opportunistic "wait-and-snipe" is discouraged
 
-### 3.5 Yield and Burn Mechanics
+- Honest early conviction
+- Discouraging passive “wait-to-snipe” behavior
+- Ability to flip false claims with capital
+- Meaningful commitment to defend claims
 
-Aligned stake earns yield. Misaligned stake burns.
+### 3.5 Yield and Burn Mechanics (Formal Definitions)
 
-If VS = 0:
-- No gains or losses
-- Encourages market discovery before conviction
+Let:
 
-Unstaked balances decay at the minimum rate to discourage passive ambush capital.
+- **n** = your stake amount
+- **Δt** = time step (years)
+- **VS ∈ [−100, +100]**
+- **v = |VS| / 100**
+- **T** = total stake on the Post (support + challenge)
+- **side** ∈ {support, challenge}
+- **sgn = +1** if your side matches sign(VS), **−1** if opposite, **0** if VS = 0
+- **R_max** = governed maximum annual rate (e.g., 10 × US10Y)
+- **R_min** = governed minimum annual rate (e.g., 0.1 × US10Y)
 
-### 3.6 Formal Staking Reward Formula
+#### Maturity parameter
 
-Variables:
-n = your stake amount  
-VS = Verity Score (-100 to +100)  
-v = |VS| / 100  (normalizes VS to 0-1)  
-T = total stake on the post  
-R_max = max annual rate (governed)  
-R_min = min annual rate (governed)  
-K > 0 = maturity constant (governed)  
-alpha >= 0 = position steepness exponent (governed)  
-delta_t = time period in years (e.g., 1/365)
+Let:
 
-Alignment sign:
-sgn = +1 if you are on side of sign(VS)
-sgn = -1 if you oppose sign(VS)
-sgn = 0 if VS = 0
+- **S** = total VSP supply
+- **A** = number of active Posts (stake ≥ posting fee)
 
-Maturity function:
-f(T) = T / (T + K)
+Then:
 
-Effective rate:
-r_eff = R_min + (R_max - R_min) * v * f(T)
+**K = S / A**  
+(if A = 0, define K = S)
 
-Positional weight:
-For stake position i (1 is earliest):
-raw weight(i) = 1 / (i ^ alpha)
-normalized weight w_i = raw weight(i) / sum(raw weight(j) for j = 1..N)
+and maturity function:
 
-Per-period change:
-If total stake < posting fee or VS = 0, then:
-delta_n = 0
+**f(T) = T / (T + K)**
 
-Otherwise:
-delta_n = n * sgn * w_i * r_eff * delta_t
-n_next = max(0, n + delta_n)
+Interpretation: deeper, more engaged claims earn nearer the max rate.
 
-Unstaked VSP decay:
-U_next = U * (1 - R_min * delta_t)
+#### Effective annual rate
 
-### 3.7 Economic Dynamics
+**r_eff = R_min + (R_max − R_min) × v × f(T)**
 
-- Early correct stakers gain most
-- Early wrong stakers lose most
-- Late entrants have lower risk and lower reward
-- False claims leak capital until corrected
-- True claims become fortified by capital
+- If **VS = 0**, then **v = 0 → r_eff = R_min**
+- If **|VS| = 100** and **T >> K**, then **r_eff ≈ R_max**
 
-### 3.8 Launch Parameters (governed)
+#### Positional weighting
 
-R_max = 10 × US 10-year Treasury  
-R_min = 0.1 × US 10-year Treasury
+Let **i = 1** be earliest stake position on your side.  
+Weight per position:
+
+**w_i = (1 / i) ÷ Σ (1 / j) for j = 1…N_s**
+
+(N_s = number of stake lots on that side)
+
+- Position 1 has the strongest effect.
+- When earlier lots withdraw, later lots shift forward.
+
+#### Per-step change in stake
+
+If **VS = 0** or **T < posting fee**:
+
+**Δn = 0**
+
+Else:
+
+**Δn = n × sgn × w_i × r_eff × Δt**  
+**n_next = max(0, n + Δn)**
+
+- Aligned stake grows  
+- Misaligned stake burns  
+- Early stake feels the strongest effect
+
+### 3.6 Unstaked Value Decay
+
+Unstaked VSP decays at **R_min** per year:
+
+**U_next = U × (1 − R_min × Δt)**
+
+Purpose:
+
+- Discourage “idle whale ambushes”
+- Encourage active participation
+- Sustain circulating engagement, not hoarding
+
+### 3.7 Intuition & Economic Dynamics
+
+- Early correct conviction earns most.
+- Early wrong conviction loses most.
+- Late entries face lower risk & lower reward.
+- Weak claims can be overturned via capital challenge.
+- Strong true claims become economically “fortified.”
+- Strong false claims leak value until corrected.
+- Holding idle capital erodes value, pushing engagement.
+
+### 3.8 Launch Parameters (governance-changeable)
+
+- **Max staking rate:** 10× US 10-Year Treasury
+- **Min staking rate:** 0.1× US 10-Year Treasury
+- **K formula:** K = S / A (with A = active Posts)
 
 ---
-
 ## 4. Verity Score Mechanics
 
 ### 4.1 Base Verity Score (no links)
