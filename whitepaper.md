@@ -165,24 +165,115 @@ VeriSphere is a **market for truth**, where the scoreboard is capital at risk an
 
 ## 3. Posting & Staking Mechanics
 
-### 3.1 Posting Claims
-- Anyone may post a claim
-- Posting fee: **pegged to gold**, not USD  
-  - Launch: 1 VSP = \$1 ≈ 1/4000 oz gold  
-  - Fee remains **1/4000 oz gold equivalent** via oracle  
-- Fee is **burned**
-- Fee counts as stake **only after total stake ≥ fee** (otherwise Verity Score stays neutral)
+### 3.1 Posting
 
-### 3.2 Staking
-Users stake VSP to support or challenge any claim.  
-Stakes may be adjusted or withdrawn any time.
+- Any player may publish a single atomic assertion, called a Post.
+- Each Post must contain only one claim.
+- Publishing a Post requires a gold-pegged fee (burned).
+- A Post begins at Verity Score (VS) = 0 until total stake on the Post (support or challenge) reaches at least the posting fee.
+- The posting fee does not earn yield, but does count toward total stake, once additional stake reaches the fee threshold.
+- Posts cannot be edited; corrections must be posted as new Posts and linked.
 
-### 3.3 Incentives & Rates
-| Behavior | Effect |
-|---|---|
-| Stake aligns with ultimate consensus | Stake **earns** newly minted VSP |
-| Stake misaligns | Stake **burns** VSP |
-| Unstaked balances | **burn at the minimum rate**, forcing stake to take a position, rather than waiting risk-free on the sidelines. |
+### 3.2 Staking on Claims
+
+Players may stake VSP to either:
+
+- Support a Post (assert it is true), or
+- Challenge a Post (assert it is false)
+
+Stake can be:
+
+- Added incrementally
+- Withdrawn (with position effects, see below)
+- Flipped from support to challenge or vice-versa
+
+Stakes earn or lose value depending on whether they align with the Post's consensus truth, as represented by Verity Score.
+
+### 3.3 Verity Score (VS)
+
+The Verity Score measures consensus belief in a Post:
+
+VS = (2 × (support stake ÷ total stake) − 1) * 100
+
+Range:
+
+- +100 means total belief that the claim is true
+- 0 means unclear or split
+- −100 means total belief the claim is false
+
+VS continuously updates as stakes change.
+
+### 3.4 Positional Staking System
+
+Stake on each side forms a queue ordered by arrival time.
+
+Principles:
+
+- Earlier stake carries higher risk and higher reward.
+- Earlier stake loses more when wrong and earns more when right.
+- Later stake earns less and loses less, creating lower-risk entry as claims mature.
+- When stake is removed, later stake shifts forward to occupy earlier positions.
+
+This system incentivizes:
+
+- Early honest conviction
+- Discouraging opportunistic “wait-and-snipe” behavior
+- Allowing corrective flips when falsehoods accumulate stake
+- Meaningful capital commitment to defend claims
+
+### 3.5 Reward and Loss Distribution
+
+Rewarding aligned stake:
+
+- A stake earns yield proportional to its position weight, VS magnitude, and total stake magnitude.
+- Higher VS and higher total stake means higher trust premium for aligned stake holders.
+
+Penalizing misaligned stake:
+
+- Misaligned stake burns value at the same curve as aligned stake earns.
+- Early wrong conviction loses the most, discouraging reckless claims.
+
+If VS = 0:
+
+- Neither side earns or loses, encouraging discovery staking until clarity emerges.
+
+### 3.6 Economic Function
+
+This creates dynamic information markets where:
+
+- Early correct stakers gain the most.
+- Early wrong stakers lose the most.
+- Late stakers profit modestly but with lower risk.
+- Weak claims can be flipped by coordinated challenge capital.
+- Strong true claims become economically “fortified”.
+- Strong false claims leak value until corrected.
+
+Unstaked balances degrade at the minimum burn rate to discourage passive ambush (holding tokens idle to snipe emerging claims without exposure).
+
+### 3.7 Summary of Effects
+
+This mechanism rewards:
+
+- Truth-seeking
+- Early, honest conviction
+- Continuous monitoring
+- Active argumentation
+- Rational participation
+
+And it penalizes:
+
+- Dishonesty
+- Reckless assertion
+- Passive speculation
+- Manipulative capital ambush tactics
+
+The economy remains self-correcting because:
+
+- Capital must take risk to earn reward.
+- Claims cannot be dominated by passive money.
+- False claims bleed value until corrected.
+- Truth earns yield by surviving challenge over time.
+
 
 **Rates at launch** (governance-changeable):  
 - Max return = **10× US 10-Year Treasury**
