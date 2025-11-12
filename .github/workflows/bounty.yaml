@@ -7,6 +7,7 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -14,27 +15,27 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
           pip install gspread google-auth
 
-      - name: Guard: requires "bounty" label
+      - name: Guard - requires bounty label
         id: guard
         run: |
-          echo 'EVENT_PATH: $GITHUB_EVENT_PATH'
-          python - << 'PY'
-import json, os, sys
-with open(os.environ['GITHUB_EVENT_PATH']) as f:
-    ev = json.load(f)
-labels = [l['name'] for l in ev.get('issue', {}).get('labels', [])]
-want = any(l.startswith('bounty') or l=='bounty' for l in labels)
-print("Has bounty label:", want)
-# expose as GitHub output
-with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-    out.write(f"has_bounty={'true' if want else 'false'}\n")
-PY
+          echo "Checking for bounty label..."
+          python3 <<'PYCODE'
+import json, os
+event_path = os.environ.get('GITHUB_EVENT_PATH')
+with open(event_path) as f:
+    event = json.load(f)
+labels = [lbl["name"] for lbl in event.get("issue", {}).get("labels", [])]
+has_bounty = any(l == "bounty" or l.startswith("bounty:") for l in labels)
+print("Has bounty label:", has_bounty)
+with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+    out.write(f"has_bounty={'true' if has_bounty else 'false'}\n")
+PYCODE
 
       - name: Run sync script
         if: steps.guard.outputs.has_bounty == 'true'
@@ -43,5 +44,5 @@ PY
           SHEET_ID: ${{ secrets.SHEET_ID }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: |
-          python .verisphere/scripts/sheets_sync.py
+          python3 .verisphere/scripts/sheets_sync.py
 
