@@ -1,6 +1,6 @@
 # VeriSphere: A Game of Staked Truth  
-### White Paper — v12.0 (Draft)  
-**Date:** October 2025  
+### White Paper — v13.0 (Draft)  
+**Date:** November 2025  
 **Contact:** info@verisphere.co  
 
 ## Abstract
@@ -380,124 +380,168 @@ Economic equilibrium emerges through **risk, skill, and truth-seeking behavior**
 
 ---
 
-## 7. Governance Lane (“GP” Namespace)
+# 7. Governance Lane (“GP” Namespace)
 
+## 7.0 Overview
 Truth discovery and protocol stewardship must coexist but operate under fundamentally different rules.  
 VeriSphere therefore defines two parallel, interoperable lanes:
 
 - **Knowledge Claims (KC):** perpetual, open-ended truth-staking market  
-- **Governance Proposals (GP):** time-bounded, executable protocol decisions
+- **Governance Proposals (GP):** time-bounded, executable protocol decisions  
 
-KC maintains epistemic integrity (“truth never finalizes”).  
-GP provides operational finality (“decisions must finalize”).
+**KC** maintains epistemic integrity (“truth never finalizes”).  
+**GP** provides operational finality (“decisions must finalize”).  
+Together they form a self-evolving truth economy that governs itself through explicit, auditable actions.
 
-### 7.1 Governance Goals
+---
 
+## 7.1 Governance Goals
 Governance exists to:
 
-- Maintain and evolve core protocol parameters
-- Approve upgrades, treasury allocations, and economic changes
-- Support community bounties and ecosystem expansion
-- Preserve long-term credibility and security
+- Maintain and evolve core protocol parameters  
+- Approve upgrades, treasury allocations, and ecosystem changes  
+- Authorize community bounties and project expansions  
+- Preserve long-term credibility, security, and incentive balance  
 
-Governance is minimally interventionist; the truth market must remain primary.
+Governance is **minimally interventionist**:  
+the **truth market** (KC lane) remains primary; the **governance lane** only adjusts the rules of the game and funds legitimate work supporting truth infrastructure.
 
-### 7.2 GP Proposal Lifecycle
+---
 
-Governance proposals are discrete on-chain objects with a structured lifecycle:
+## 7.2 GitHub-Based Proposal Lifecycle (Operational Implementation)
 
-1. **Draft**  
-   - Anyone may draft a proposal
-   - Simulated feasibility and economic impact recommended
+During the MVP phase, the **Governance Lane** operates through GitHub’s native structures integrated with the on-chain bounty system.  
+Each **GitHub Issue** represents a **Governance Proposal Object (GPO)**.
 
-2. **Activation / Voting Window**  
-   - Fixed time period (e.g., 5–14 days)
-   - **Snapshot voting power** taken at activation to prevent last-minute capital swings
+### Lifecycle
 
-3. **Grace / Timelock**  
-   - Delay between approval and execution  
-   - Allows vetoes, bug disclosures, or emergency pauses
+| Stage | Description |
+|--------|-------------|
+| **Draft** | Any verified contributor opens a GitHub issue in the `verisphere/docs` repository.  The issue serves as a draft proposal with title, description, dependencies, and deliverables. |
+| **Activation** | The issue receives a label `bounty:<amount>` and enters the Governance Project board.  A bounty escrow is automatically provisioned via the GitHub Action → Google Sheets → Solana flow. |
+| **Voting / Approval** | Reviewers (multisig or governance wallet) mark the issue as `approved`.  This updates the bounty ledger and locks funds in the on-chain bounty contract. |
+| **Execution / Work** | Contributors complete the deliverables.  Work is validated through PRs, commits, or deployed artifacts. |
+| **Completion / Payout** | When verified, the GitHub Action writes the payout `$`TxID (Solscan)`$` to the bounty ledger.  The issue is closed and becomes permanent protocol history. |
 
-4. **Execution or Expiry**  
-   - Successful proposals **execute automatically on-chain**
-   - Failed proposals expire without effect
+This model turns ordinary GitHub issues into **on-chain governance proposals**, linking operational transparency with economic finality.
 
-### 7.3 Voting Power Models
+---
 
-Governance may mix or evolve weighting models; candidate mechanisms include:
+## 7.3 Reward Curve (Economic Governance Model)
 
-- **Staked VSP weight** (primary default — aligns incentives)
-- **Unstaked balance component** (optional minority weight)
-- **Cred Score multiplier** (performance-based trust derived from KC outcomes)
-- **Quadratic modifier** (optional anti-whale component)
+Bounty emissions follow a **governance-defined reward curve** that compensates early protocol labor more heavily than late-stage maintenance.
 
-Weights are tunable by governance.
+The per-hour reward function is:
 
-### 7.4 Quorum, Thresholds, and Safeguards
+$`r(n) = 100 + (100{,}000 - 100) \times e^{-k(n-1)}`$
 
-Policy parameters set by governance:
+where  
 
-- **Quorum requirement**
-- **Approval threshold**
-- **Turnout guardrails** (min/max to prevent apathy capture)
-- **Proposal deposit / bond** (prevents spam; returned if proposal meets quality threshold)
+$`k = \frac{\ln((100{,}000 - 100)/\varepsilon)}{H-1}, \quad \varepsilon = 1`$  
 
-Emergency controls (rare use only):
+and  
 
-- **Circuit breaker / guardian delay**
-- **Global timelock extension**
+$`H`$ = total pre-MVP cumulative hours.
 
-### 7.5 Executable Authority
+Thus:
 
-Executed proposals can:
+- the **first hour** of work earns ≈ **100 000 VSP / hour**, rewarding foundational research and architecture;  
+- the **final pre-MVP hour** earns ≈ **100 VSP / hour**, reflecting stabilized maturity.
 
-- Modify protocol parameters (fee rates, stake mechanics, caps)
-- Manage treasury funds (grants, burns, incentives)
-- Authorize upgrades to core contracts and APIs
-- Assign or revoke governance roles on upgradeability controllers
-- Approve new modules (e.g., L2 bridges, identity oracles)
+Each task’s bounty equals the **sum** of $`r(n)`$ across its hour range $`[N_{start}, N_{end}]`$.  
+This ensures **fair temporal decay** and **predictable token emission** across development.
 
-**All actions are on-chain transactions**, enforceable without off-chain trust.
+Governance can update the parameters $`r_0`$, $`r_{floor}`$, or $`\varepsilon`$ via future proposals, keeping reward policy transparent and algorithmically defined.
 
-### 7.6 Interaction With KC Lane
+---
 
-Knowledge staking and governance are related but distinct:
+## 7.4 Quorum, Thresholds, and Safeguards
+Formal on-chain governance (post-MVP) inherits these GP safeguards:
 
-- KC stakes **do not auto-count** in GP unless included in voting formula
-- KC outcomes **do not force protocol changes** (truth ≠ enactment)
-- GP can modify KC parameters but cannot cherry-pick claim outcomes
+- **Quorum:** minimum stake participation for proposal validity  
+- **Approval threshold:** majority / super-majority depending on impact  
+- **Turnout guardrails:** prevent apathy or capture  
+- **Proposal bond:** spam deterrent; refundable for qualified proposals  
+- **Emergency controls:** circuit breaker, timelock extensions, vetoes  
 
-This separation preserves epistemic independence and market integrity.
+Until full decentralization, multisig verification of GitHub issues acts as interim quorum enforcement, ensuring each bounty reflects community consensus.
 
-### 7.7 Proposal Types
+---
 
-Common governance proposal classes:
+## 7.5 Executable Authority
+Approved proposals may:
 
-- **Parameter changes** (posting fee factor, yield bands, decay rates)
-- **Treasury allocations** (bounties, ecosystem funding)
-- **Protocol upgrades** (logic modules, new staking primitives)
-- **Foundation actions** (partnership approvals, legal governance)
-- **Emergency responses** (halts or mitigations — formalized and auditable)
+- Modify protocol parameters (fees, yield, decay, quorum, etc.)  
+- Allocate or burn VSP treasury funds  
+- Upgrade smart-contracts / APIs  
+- Define reward-curve constants  
+- Approve new modules or oracles  
+- Trigger audits or governance reviews  
 
-### 7.8 Governance UI and UX
+All actions resolve on-chain—either as transactions through governance contracts or authenticated signatures in the off-chain ledger pipeline.
 
-To maximize legitimacy:
+---
 
-- Proposal templates and on-chain metadata
-- Clear impact visualization and code diffs
-- Voting guides and simulation tools
-- Public audit trails and vote receipts
-- Mobile and desktop wallet coverage
+## 7.6 Interaction With KC Lane
+Knowledge and governance remain distinct yet interoperable:
 
-### 7.9 Economic Safeguards
+- KC staking outcomes influence **Cred Score**, which can weight GP voting.  
+- GP outcomes never alter KC truth — truth cannot be voted on.  
+- GP may modify KC parameters (e.g., posting fee factor) but not specific claim veracity.  
 
-To protect against governance capture:
+This preserves **epistemic independence** and **economic accountability**.
 
-- **Proposal bonds** to discourage frivolous actions
-- **Staged treasury access** (streaming, vesting, or capped withdrawals)
-- **Slashing or lock-up rules** for malicious governance attempts
+---
 
-Economic resistance complements social consensus and code security.
+## 7.7 Proposal Types (Mapped to GitHub)
+
+| Type | Example | Repository |
+|------|----------|------------|
+| **Parameter Change** | Adjust yield bands or decay rates | `core` |
+| **Treasury Allocation** | Fund research grant / bounty pool | `docs` |
+| **Protocol Upgrade** | Deploy new staking primitive | `core` |
+| **Infrastructure Task** | Build AI collation backend | `backend` |
+| **UI / UX Task** | Create encyclopedia frontend | `frontend` |
+| **Emergency Response** | Temporary halt / patch | `core` |
+
+All begin as GitHub issues (proposal drafts) and escalate to formal GP objects upon funding.
+
+---
+
+## 7.8 Governance UI / UX
+To maximize legitimacy and accessibility:
+
+- GitHub issue templates = proposal forms  
+- Bounty ledger = real-time transparency (reward, status, TxID)  
+- VS-based Cred Scores = optional contributor weights  
+- Governance dashboard = proposal timeline + fund-flow visualization  
+
+Wallet integrations will enable direct on-chain voting from proposal pages post-MVP.
+
+---
+
+## 7.9 Economic Safeguards
+To protect against capture and abuse:
+
+- **Proposal bonds** discourage spam  
+- **Streaming / vested disbursement** for large payouts  
+- **Slashing** for fraudulent claims  
+- **Idle decay** for unspent allocations  
+- **Audit logs** cryptographically linked between GitHub, Sheets, and chain  
+
+These measures embed economic discipline directly into protocol law.
+
+---
+
+## 7.10 Summary
+Governance in VeriSphere is **programmable coordination**, not bureaucracy.  
+By encoding proposals as GitHub issues, funding them through an exponential reward curve, and executing them via on-chain transactions, VeriSphere unites:
+
+- Decentralized labor markets  
+- Transparent project management  
+- Mathematically predictable rewards  
+
+Every completed task represents both a **truthful contribution** and a **governance event**, verifiable on-chain and immutable in history.
 
 ---
 
@@ -506,6 +550,7 @@ The Governance Lane enables verifiable, time-bounded, executable decision-making
 KC discovers truth; GP steers the protocol.  
 Both use VSP, both are transparent — but only GP finalizes and executes.
 
+---
 
 ## 8. Architecture
 
