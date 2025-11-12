@@ -25,20 +25,20 @@ jobs:
         id: guard
         run: |
           echo "Checking for bounty label..."
-          cat > guard.py <<'PYCODE'
-import json, os
+          cat > guard.py <<-'PYCODE'
+          import json, os
 
-event_path = os.environ.get("GITHUB_EVENT_PATH")
-with open(event_path) as f:
-    event = json.load(f)
+          event_path = os.environ.get("GITHUB_EVENT_PATH")
+          with open(event_path) as f:
+              event = json.load(f)
 
-labels = [lbl["name"] for lbl in event.get("issue", {}).get("labels", [])]
-has_bounty = any(l == "bounty" or l.startswith("bounty:") for l in labels)
-print("Has bounty label:", has_bounty)
+          labels = [lbl["name"] for lbl in event.get("issue", {}).get("labels", [])]
+          has_bounty = any(l == "bounty" or l.startswith("bounty:") for l in labels)
+          print("Has bounty label:", has_bounty)
 
-with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-    out.write(f"has_bounty={'true' if has_bounty else 'false'}\n")
-PYCODE
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"has_bounty={'true' if has_bounty else 'false'}\n")
+          PYCODE
           python3 guard.py
 
       - name: Run sync script
