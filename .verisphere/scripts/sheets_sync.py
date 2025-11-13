@@ -1,15 +1,13 @@
-import os, json, re
+import os, json
 
 def extract_label_value(labels, prefix):
+    """Extract values from labels like:
+       phase:1, hours:120, bounty:50000
     """
-    Extracts values from labels like:
-      phase:1
-      bounty:50000
-      hours:120
-    """
-    for l in labels:
-        if l.lower().startswith(prefix.lower() + ":"):
-            return l.split(":", 1)[1]
+    prefix_lower = prefix.lower() + ":"
+    for label in labels:
+        if label.lower().startswith(prefix_lower):
+            return label.split(":", 1)[1]
     return ""
 
 def main():
@@ -32,52 +30,54 @@ def main():
         print("⚠️ Not an issue event.")
         return
 
+    # Extract GitHub issue fields
     number = issue.get("number", "")
     title = issue.get("title", "")
     body = issue.get("body", "")
     state = issue.get("state", "")
-    labels = [l["name"] for l in issue.get("labels", [])]
     url = issue.get("html_url", "")
+
+    labels = [l["name"] for l in issue.get("labels", [])]
 
     print(f"Issue #{number}: {title}")
     print("Labels:", labels)
 
-    # Parse structured label values
+    # Label parsing
     phase = extract_label_value(labels, "phase")
     est_hours = extract_label_value(labels, "hours")
     bounty = extract_label_value(labels, "bounty")
-
-    # Default status is GitHub state, but we prefer label if present
     status_label = extract_label_value(labels, "status")
     status = status_label if status_label else state
 
-    # Unfilled fields can be added when governance approves the task
     dependencies = ""
+    deliverables = body  # you may later parse "### Deliverables" sections
     notes = ""
     txid = ""
     start_hour = ""
     end_hour = ""
 
-    # Form the row with EXACT sheet schema
+    # New column ordering (includes URL)
     row = [
-        number,        # ID
-        phase,         # Phase
-        title,         # Task Name
-        body,          # Full Description
-        body,          # Deliverables (for now: duplicate body)
-        dependencies,  # Dependencies
-        est_hours,     # Est. Hours
-        bounty,        # Bounty (VSP)
-        status,        # Status
-        notes,         # Notes
-        txid,          # TxID
-        start_hour,    # Start Hour N
-        end_hour       # End Hour N
+        number,        # ID (A)
+        phase,         # Phase (B)
+        title,         # Task Name (C)
+        body,          # Full Description (D)
+        url,           # URL (E) ← NEW
+        deliverables,  # Deliverables (F)
+        dependencies,  # Dependencies (G)
+        est_hours,     # Est. Hours (H)
+        bounty,        # Bounty (VSP) (I)
+        status,        # Status (J)
+        notes,         # Notes (K)
+        txid,          # TxID (L)
+        start_hour,    # Start Hour N (M)
+        end_hour       # End Hour N (N)
     ]
 
-    print("Row to insert:", row)
+    print("Row to insert:")
+    print(row)
 
-    # Test mode
+    # Exit early if no credentials — this prevents accidental writes
     if not creds_json:
         print("⚙️ No Google credentials provided — dry run.")
         return
@@ -97,7 +97,6 @@ def main():
     sheet.append_row(row)
 
     print("✅ Row appended to Google Sheet successfully!")
-
 
 if __name__ == "__main__":
     main()
