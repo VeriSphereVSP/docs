@@ -10,6 +10,25 @@ def extract_label_value(labels, prefix):
             return label.split(":", 1)[1]
     return ""
 
+def extract_block(text, start_key, end_key):
+    """Extract text between start_key and end_key (case-insensitive).
+       Returns "" if not found.
+    """
+    low = text.lower()
+    start_idx = low.find(start_key.lower())
+    if start_idx == -1:
+        return ""
+
+    start_idx += len(start_key)
+
+    if end_key:
+        end_idx = low.find(end_key.lower(), start_idx)
+        if end_idx == -1:
+            return text[start_idx:].strip()
+        return text[start_idx:end_idx].strip()
+
+    return text[start_idx:].strip()
+
 def main():
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     sheet_id = os.getenv("SHEET_ID")
@@ -49,29 +68,35 @@ def main():
     status_label = extract_label_value(labels, "status")
     status = status_label if status_label else state
 
-    dependencies = ""
-    deliverables = body  # you may later parse "### Deliverables" sections
-    notes = ""
+    # --- FIXED FIELD EXTRACTION ---
+    full_description = body.strip()
+
+    deliverables = extract_block(body, "deliverables:", "dependencies:")
+    dependencies = extract_block(body, "dependencies:", "estimated hours:")
+    estimated_hours = extract_block(body, "estimated hours:", "start hour")
+    bounty_vsp = extract_block(body, "bounty (vsp):", "notes:")
+    notes = extract_block(body, "notes:", "")
+
     txid = ""
     start_hour = ""
     end_hour = ""
 
     # New column ordering (includes URL)
     row = [
-        number,        # ID (A)
-        phase,         # Phase (B)
-        title,         # Task Name (C)
-        body,          # Full Description (D)
-        url,           # URL (E) ← NEW
-        deliverables,  # Deliverables (F)
-        dependencies,  # Dependencies (G)
-        est_hours,     # Est. Hours (H)
-        bounty,        # Bounty (VSP) (I)
-        status,        # Status (J)
-        notes,         # Notes (K)
-        txid,          # TxID (L)
-        start_hour,    # Start Hour N (M)
-        end_hour       # End Hour N (N)
+        number,            # A: ID
+        phase,             # B: Phase
+        title,             # C: Task Name
+        full_description,  # D: Full Description
+        url,               # E: URL
+        deliverables,      # F: Deliverables
+        dependencies,      # G: Dependencies
+        estimated_hours,   # H: Est. Hours
+        bounty_vsp,        # I: Bounty (VSP)
+        status,            # J: Status
+        notes,             # K: Notes
+        txid,              # L: TxID
+        start_hour,        # M: Start Hour N
+        end_hour           # N: End Hour N
     ]
 
     print("Row to insert:")
@@ -94,7 +119,7 @@ def main():
 
     client = gspread.authorize(creds)
     sheet = client.open_by_key(sheet_id).sheet1
-    sheet.append_row(row)
+    sheet.append_row(row, value_input_option="USER_ENTERED")
 
     print("✅ Row appended to Google Sheet successfully!")
 
