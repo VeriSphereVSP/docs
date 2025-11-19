@@ -2,7 +2,7 @@ name: Bounty Sync
 
 on:
   issues:
-    types: [opened, labeled, edited, closed]
+    types: [opened]
 
 jobs:
   sync:
