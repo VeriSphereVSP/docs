@@ -21,12 +21,14 @@ All content uses ASCII only.
 ## 1.1 Post
 
 struct Post {
+
     uint256 postId;
     address creator;
     uint256 timestamp;
     string text;
     uint256 supportTotal;
     uint256 challengeTotal;
+
 }
 
 ---
@@ -34,11 +36,13 @@ struct Post {
 ## 1.2 StakeLot
 
 struct StakeLot {
+
     address staker;
     uint256 amount;
     uint8 side;            // 0 = support, 1 = challenge
     uint32 positionIndex;
     uint256 entryTimestamp;
+
 }
 
 ---
@@ -46,10 +50,12 @@ struct StakeLot {
 ## 1.3 Relation
 
 struct Relation {
+
     uint256 fromPost;
     uint256 toPost;
     uint8 relationType; // 0 = support, 1 = challenge
     uint256 ctxStake;
+
 }
 
 ---
