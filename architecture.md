@@ -18,7 +18,7 @@ Implements all **truth-staking rules**, **immutability**, and **economic logic**
 - Verity Score (VS) logic
 - Yield & burn calculations
 - Evidence link graph logic
-- VSP token mint/burn with idle-decay
+- VSP token mint/burn
 - Governance execution (parameter changes, upgrades, treasury)
 
 Executed entirely through **Solidity contracts** on Avalanche.
@@ -65,7 +65,7 @@ Avalanche provides fast finality (<1 sec), mature tooling, and EVM compatibility
 
 | Module | Responsibilities |
 |--------|------------------|
-| **VSP Token** | ERC-20 compatible; mint/burn rights for staking engine & treasury; idle-decay |
+| **VSP Token** | ERC-20 compatible; mint/burn rights for staking engine & treasury |
 | **PostRegistry** | Creates immutable Posts; enforces posting-fee burn; stores metadata & stake totals |
 | **StakeEngine** | Manages staking queues, flips, withdrawals, positional weight logic |
 | **YieldEngine** | Computes yield/burn based on VS, maturity, and position index |
