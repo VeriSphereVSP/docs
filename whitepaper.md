@@ -520,7 +520,7 @@ During MVP, multisig-based approval of issues acts as a conservative stand-in fo
 
 Executed proposals can:
 
-- Modify protocol parameters (posting fee factor, yield bands, decay rates)  
+- Modify protocol parameters (posting fee factor, yield bands, staking rate parameters)  
 - Manage treasury funds (grants, bounties, ecosystem incentives)  
 - Authorize upgrades to core Solidity contracts and APIs (using proxy patterns)  
 - Assign or revoke governance roles in upgrade controllers  
@@ -578,8 +578,7 @@ To protect against governance capture:
 
 - **Proposal bonds** to discourage frivolous governance  
 - **Staged treasury access:** streaming, vesting, and per-epoch caps  
-- **Slashing or lock-ups** for malicious attempts  
-- **Idle decay** on unspent governance allocations, redirecting them back to a reserve pool  
+- **Slashing or lock-ups** for malicious attempts    
 
 Economic resistance complements social consensus and contract security.
 
