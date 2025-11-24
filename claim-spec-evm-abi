@@ -1,5 +1,7 @@
 # VeriSphere Claim and Staking Specification (EVM-ABI Formal Style)
 
+---
+
 ## Overview
 This document defines the formal ABI-level specification for the VeriSphere on-chain components:
 - PostRegistry
@@ -14,6 +16,8 @@ All content uses ASCII only.
 
 # 1. Core Data Structures
 
+---
+
 ## 1.1 Post
 
 struct Post {
@@ -25,6 +29,8 @@ struct Post {
     uint256 challengeTotal;
 }
 
+---
+
 ## 1.2 StakeLot
 
 struct StakeLot {
@@ -34,6 +40,8 @@ struct StakeLot {
     uint32 positionIndex;
     uint256 entryTimestamp;
 }
+
+---
 
 ## 1.3 Relation
 
