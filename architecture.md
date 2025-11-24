@@ -167,6 +167,8 @@ Cycle detection enforces a strict DAG.
 
 ## 5.4 Yield & Burn Mechanics
 
+Early correct stake compounds fastest; late wrong stake burns slowest.
+
 ### Maturity factor:
 $`K = S / A`$  
 $`f(T) = T / (T + K)`$
@@ -191,7 +193,8 @@ Where:
 - Stake removed  
 - Queue re-ordered  
 - Final yield/burn applied  
-- Tokens returned  
+- Tokens returned
+- Resets positional advantage 
 
 ## 5.6 Flip Stake
 - Remove from one queue  
@@ -307,7 +310,7 @@ Early foundational work earns the most.
 | Threat | Mitigation |
 |--------|------------|
 | Spam posting | Gold-pegged post fee |
-| Whale ambush | Idle-decay, positional weighting |
+| Whale ambush | Positional weighting + maturity factor |
 | Sybils | Capital-weighted incentives |
 | History rewrite | Posts immutable; supersession only |
 | AI hallucination | AI suggestions are off-chain only |
