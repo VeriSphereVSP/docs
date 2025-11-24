@@ -7,12 +7,12 @@
 
 ## Abstract
 
-**VeriSphere is a truth-staking game — a place where belief meets consequence. It’s “put your money where your mouth is” applied to knowledge.**  
-In VeriSphere, any player can publish a claim — and **any player can stake on any claim**. If you believe a statement is true, you can support it with stake; if you think it’s false, you can challenge it. When you're right, you earn. When you're wrong, you lose.
+**VeriSphere is a truth‑staking game — a competitive market where belief carries financial consequence.**  
+Any player may publish a factual claim, and any player may stake VSP tokens to support or challenge it. When you're right, your stake grows; when you're wrong, you lose. Over time, truthful claims accumulate economic weight, while false or unsupported claims lose it.
 
-Players challenge weak claims, support strong ones, and link evidence across the network to strengthen them. Claims that withstand real scrutiny rise in value and visibility; weak, false, or unsupported claims lose stake and fade.
+Players strengthen claims by linking evidence, challenging weak assertions, and participating in a dynamic, adversarial epistemic market. No moderators, no upvotes, no reputation — **only transparent rules, incentives, and skin in the game.**
 
-There are no moderators, no reputation systems, no popularity contests — only transparent rules and economic incentives. VeriSphere is both a venue and a protocol for discovering truth and sinking misinformation, powered not by any central authority, but by **evidence, courage, and skin in the game**.
+VeriSphere is both a protocol and a public knowledge engine: a decentralized mechanism for lifting truth and sinking misinformation by aligning economic incentives with intellectual honesty.
 
 ---
 
@@ -309,19 +309,7 @@ $`n_{next} = \max(0, n + \Delta n)`$
 - Misaligned stake burns  
 - Early stake feels the strongest effect  
 
-### 3.6 Unstaked Value Decay
-
-Unstaked VSP decays at $`R_{min}`$ per year:
-
-$`U_{next} = U \times (1 - R_{min} \times \Delta t)`$
-
-Purpose:
-
-- Discourage “idle whale ambushes”  
-- Encourage active participation  
-- Sustain circulating engagement, not hoarding  
-
-### 3.7 Intuition & Economic Dynamics
+### 3.6 Intuition & Economic Dynamics
 
 - Early correct conviction earns most.  
 - Early wrong conviction loses most.  
@@ -329,9 +317,8 @@ Purpose:
 - Weak claims can be overturned via capital challenge.  
 - Strong true claims become economically “fortified.”  
 - Strong false claims leak value until corrected.  
-- Holding idle capital erodes value, pushing engagement.
 
-### 3.8 Launch Parameters (governance-changeable)
+### 3.7 Launch Parameters (governance-changeable)
 
 - **Max staking rate:** 10× US 10-Year Treasury  
 - **Min staking rate:** 0.1× US 10-Year Treasury  
@@ -400,7 +387,6 @@ Circular references are prohibited.
 | Supply | Elastic: minted for correct stakes, burned for wrong stakes |
 | Initial peg | $`1 \text{ VSP} = \$1`$ at launch |
 | Posting fee | Pegged to $`1/4000`$ oz of gold via oracle |
-| Unstaked VSP | Burns at minimum APR $`R_{min}`$ |
 | Reserve mechanics | None — market-driven value |
 | Treasury | For bounties & bootstrap, transparent on-chain (Avalanche) |
 
@@ -671,14 +657,10 @@ VeriSphere = **public truth engine + economic layer**, not a single website.
 
 ## 11. Conclusion
 
-VeriSphere exposes truth to the ultimate filter: **skin in the game**.
+VeriSphere introduces **economic truth-pressure**:  
+A decentralized environment where correctness earns, falsehood costs, and evidence shapes outcomes.
 
-False ideas cost money.  
-Correct ideas survive, earn, and rise.
-
-A global market for truth — open, adversarial, economically honest.
-
-**Put your money where your mouth is.**  
-Truth wins when belief has consequence.
+A global, adversarial, transparent game of ideas —  
+**where belief has consequence and truth has weight.**
 
 ---
