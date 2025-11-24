@@ -611,7 +611,7 @@ Both use VSP, both are transparent — but only GP **finalizes and executes**.
 
 Core components:
 
-- **VSP Token (Solidity):** ERC-20 compatible token with governance-controlled mint, burn, and idle-decay hooks.  
+- **VSP Token (Solidity):** ERC-20 compatible token with governance-controlled mint and burn hooks.  
 - **PostRegistry:** immutable Posts, posting fees, base VS logic.  
 - **StakeEngine:** per-Post staking queues, reward/burn calculation, side flipping, withdrawal.  
 - **LinkGraph:** support/challenge edges, cycle prevention, influence propagation.  
