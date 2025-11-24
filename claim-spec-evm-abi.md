@@ -16,8 +16,6 @@ All content uses ASCII only.
 
 # 1. Core Data Structures
 
----
-
 ## 1.1 Post
 
 struct Post {
