@@ -244,70 +244,71 @@ Incentives:
 - Ability to flip false claims with capital  
 - Meaningful commitment to defend claims  
 
-### 3.5 Yield and Burn Mechanics (Formal Definitions)
+## 3.5 Annualized Staking Rate (Revised)
+
+Each stake earns or loses value continuously according to an annualized rate
+determined by four factors:
+
+1. **Queue Position** — earlier stakes receive greater exposure.
+2. **Post Size** — stakes on larger claims experience greater pressure.
+3. **Truth Pressure (VS)** — stronger consensus produces stronger economic force.
+4. **Governed Bounds** — all rates stay between a minimum and maximum annual rate.
 
 Let:
 
-- $`n`$ = your stake amount  
-- $`\Delta t`$ = time step (years)  
-- $`VS \in [-100, +100]`$  
-- $`v = |VS| / 100`$  
-- $`T`$ = total stake on the Post (support + challenge)  
-- $`side \in \{\text{support}, \text{challenge}\}`$  
-- $`sgn = +1`$ if your side matches `sign(VS)`, $`-1`$ if opposite, $`0`$ if $`VS = 0`$  
-- $`R_{max}`$ = governed maximum annual rate (e.g., 10 × US10Y)  
-- $`R_{min}`$ = governed minimum annual rate (e.g., 0.1 × US10Y)  
+- `q_i` = the stake’s queue index (last = 1, earliest = Q_max)
+- `Q_max` = the largest queue index of any active post
+- `p_i` = total stake on the Post on the same side as stake `i`
+- `P_max` = maximum post size among all active Posts
+- `VS` = the Post’s Verity Score, in the range [-100, +100]
+- `v = abs(VS) / 100` = normalized truth-pressure
+- `r_max = 1.00` = maximum annual rate (100%)
+- `r_min = 0.01` = minimum annual rate (1%)
 
-#### Maturity Parameter
+### Annualized Rate
 
-Let:
+The annualized rate for stake `i` is:
 
-- $`S`$ = total VSP supply  
-- $`A`$ = number of active Posts (stake ≥ posting fee)  
+```text
+r_i = max(
+    r_min,
+    r_max
+      * (q_i / Q_max)      # queue factor
+      * (p_i / P_max)      # post-size factor
+      * (abs(VS) / 100)    # truth-pressure factor
+)
+```
 
-Then:
+Interpretation:
 
-$`K = S / A`$  (if $`A = 0`$, define $`K = S`$)
+- Earlier, larger stakes receive higher potential gains and higher potential burns.
+- Posts with strong consensus (`|VS|` near 100) exert greater economic pressure.
+- Posts with contested truth (`VS` near 0) exert minimal pressure.
+- Every stake receives at least the minimum annualized exposure (`r_min`).
 
-Maturity function:
+### Per-Step Balance Change
 
-$`f(T) = T / (T + K)`$
+Let `sgn = +1` if the stake’s side matches the sign of `VS`,
+and `sgn = -1` otherwise.
 
-Interpretation: deeper, more engaged claims earn nearer the max rate.
+For a time step `Δt` in years:
 
-#### Effective Annual Rate
+```text
+Δn = n * r_i * Δt * sgn
+```
 
-$`r_{eff} = R_{min} + (R_{max} - R_{min}) \times v \times f(T)`$
+Stake update:
 
-- If $`VS = 0`$, then $`v = 0 \Rightarrow r_{eff} = R_{min}`$  
-- If $`|VS| = 100`$ and $`T \gg K`$, then $`r_{eff} \approx R_{max}`$
+```text
+n_next = max(0, n + Δn)
+```
 
-#### Positional Weighting
+This produces symmetric gains and losses:
 
-Let $`i = 1`$ be the earliest stake position on your side.  
-Weight per position:
-
-$`w_i = \dfrac{1 / i}{\sum_{j=1}^{N_s} (1 / j)}`$
-
-Where $`N_s`$ = number of stake lots on that side.
-
-- Position 1 has the strongest effect.  
-- When earlier lots withdraw, later lots shift forward.
-
-#### Per-step Change in Stake
-
-If $`VS = 0`$ or $`T < \text{postingFee}`$:
-
-$`\Delta n = 0`$
-
-Else:
-
-$`\Delta n = n \times sgn \times w_i \times r_{eff} \times \Delta t`$  
-$`n_{next} = \max(0, n + \Delta n)`$
-
-- Aligned stake grows  
-- Misaligned stake burns  
-- Early stake feels the strongest effect  
+- Correct early stake on large claims earns the most.
+- Incorrect early stake burns the most.
+- Late stake bears less risk and less reward.
+- VS determines the strength of the pressure.
 
 ### 3.6 Intuition & Economic Dynamics
 
