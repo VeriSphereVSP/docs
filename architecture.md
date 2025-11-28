@@ -167,26 +167,71 @@ Cycle detection enforces a strict DAG.
 
 ## 5.4 Yield & Burn Mechanics
 
-Early correct stake compounds fastest; late wrong stake burns slowest.
+### Stake Reward and Burn Rate (Revised)
 
-### Maturity factor:
-$`K = S / A`$  
-$`f(T) = T / (T + K)`$
+Stake rewards and burns are computed using a simplified, position-based,
+post-scaled, VS-modulated annualized rate. This rate replaces the previous
+maturity factors, harmonic weighting, and supply-dependent terms.
 
-### Effective annual rate:
-$`r_{eff} = R_{min} + (R_{max} - R_{min}) \times v \times f(T)`$
+The new rate reflects four factors:
 
-### Positional weight:
-$`w_i = (1 / i) / \sum_{j=1}^{N_s} (1/j)`$
+1. **Queue Position** — earlier stakes feel stronger pressure  
+2. **Post Size** — larger posts exert greater economic gravity  
+3. **Truth Pressure (VS)** — stronger consensus yields greater economic force  
+4. **Governed Bounds** — all stakes operate between minimum and maximum rates  
 
-### Stake update:
-$`\Delta n = n \times sgn \times w_i \times r_{eff} \times \Delta t`$
+### Definitions
 
-Where:
-- $`sgn = +1`$ if aligned with VS  
-- $`sgn = -1`$ if opposed  
-- $`sgn = 0`$ if VS = 0  
+- `q_i` — queue index of stake `i`, counted from last = 1 to earliest  
+- `Q_max` — the largest queue index among **all queues on all active posts**  
+- `p_i` — total stake on the same side (support/challenge) of the post  
+- `P_max` — largest post side total among **all active posts**  
+- `VS` — Verity Score of the post, from -100 to +100  
+- `v = abs(VS) / 100` — normalized truth pressure  
+- `r_max = 1.00` — maximum annual rate (100%)  
+- `r_min = 0.01` — minimum annual rate (1%)  
 
+### Annualized Rate
+
+```
+r_i = max(
+    r_min,
+    (q_i / Q_max) *
+    (p_i / P_max) *
+    (abs(VS) / 100) *
+    r_max
+)
+```
+
+Interpretation:
+
+- Early stakes on large posts get the strongest amplification  
+- If wrong, they also suffer the strongest burns  
+- High-consensus posts (`|VS|` near 100) exert the highest pressure  
+- Low-consensus posts (`VS` near 0) exert minimal pressure  
+- Every stake receives at least `r_min` annualized exposure  
+
+### Per-Step Balance Update
+
+Let:  
+- `sgn = +1` if the stake’s side matches the sign of `VS`  
+- `sgn = -1` if opposed  
+- `Δt` = elapsed time in years  
+
+Balance update:
+
+```
+Δn = n * r_i * Δt * sgn
+n_next = max(0, n + Δn)
+```
+
+This creates symmetric economics:
+
+- Early correct stakes compound hardest  
+- Early incorrect stakes burn hardest  
+- Late stakes have reduced risk and reduced reward  
+- Truth pressure determines the global intensity of gains and losses  
+````
 ---
 
 ## 5.5 Withdrawal
