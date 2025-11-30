@@ -22,7 +22,7 @@ NOTE: These structs are conceptual. Actual storage layout and packing may vary.
 ----------------------------------------
 1.1 Post
 ----------------------------------------
-
+```
 struct Post {
     uint256 postId;
     address creator;
@@ -31,11 +31,11 @@ struct Post {
     uint256 supportTotal;
     uint256 challengeTotal;
 }
-
+```
 ----------------------------------------
 1.2 StakeLot
 ----------------------------------------
-
+```
 struct StakeLot {
     address staker;
     uint256 amount;
@@ -43,22 +43,22 @@ struct StakeLot {
     uint32  positionIndex;  // queue index on chosen side
     uint256 entryTimestamp;
 }
-
+```
 ----------------------------------------
 1.3 Relation
 ----------------------------------------
-
+```
 struct Relation {
     uint256 fromPost;
     uint256 toPost;
     uint8   relationType;   // 0 = support, 1 = challenge
     uint256 ctxStake;
 }
-
+```
 -------------------------------------------------------------------------------
 2. IPostRegistry ABI
 -------------------------------------------------------------------------------
-
+```
 interface IPostRegistry {
     /// @notice Create a new immutable post (atomic claim).
     /// @param text The claim text, expected to be atomic and non-empty.
@@ -98,11 +98,11 @@ interface IPostRegistry {
 
     error EmptyText();
 }
-
+```
 -------------------------------------------------------------------------------
 3. IStakeEngine ABI
 -------------------------------------------------------------------------------
-
+```
 interface IStakeEngine {
     /// @notice Stake VSP on a post, on either support or challenge side.
     /// @param postId The target post id.
@@ -162,11 +162,11 @@ interface IStakeEngine {
     error NotStaker();
     error InvalidLotIndex();
 }
-
+```
 -------------------------------------------------------------------------------
 4. ILinkGraph ABI
 -------------------------------------------------------------------------------
-
+```
 interface ILinkGraph {
     /// @notice Create a contextual relation (edge) between two posts.
     /// @param fromPost      Child post used as evidence or counter-evidence.
@@ -201,11 +201,11 @@ interface ILinkGraph {
     error InvalidRelationType();
     error CycleDetected();
 }
-
+```
 -------------------------------------------------------------------------------
 5. IVSPToken ABI (subset)
 -------------------------------------------------------------------------------
-
+```
 interface IVSPToken {
     /// @notice Mint new VSP to an address.
     /// @dev Restricted to authorized minters in Authority.
@@ -229,11 +229,11 @@ interface IVSPToken {
     error NotMinter();
     error NotBurner();
 }
-
+```
 -------------------------------------------------------------------------------
 6. IAuthority ABI (subset)
 -------------------------------------------------------------------------------
-
+```
 interface IAuthority {
     // Views
 
@@ -251,7 +251,7 @@ interface IAuthority {
 
     error NotOwner();
 }
-
+```
 -------------------------------------------------------------------------------
 7. Versioning
 -------------------------------------------------------------------------------
