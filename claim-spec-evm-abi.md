@@ -267,205 +267,191 @@ their spec version, for example:
 
 Or a bytes32 constant representing a hash of this document.
 
+# VeriSphere Claim Specification – Appendices (Epoch-Based, Linear)
+
+Version: 0.4 (MVP)  
+ASCII only
+
+These appendices replace Appendix A and Appendix B in claim_spec_evm_abi.md,
+incorporating:
+
+- Epoch length = 1 day
+- Linear compounding per epoch
+- Final definitions for f_post and f_pos
+
 -------------------------------------------------------------------------------
 Appendix A. Economic Model (Informative)
 -------------------------------------------------------------------------------
 
-This appendix describes the intended economics for stake growth and loss.
-It is not ABI, but semantic guidance for implementers and auditors.
+A.1. Epoch Structure
+--------------------
 
-A.1. Symbols
+VeriSphere uses **discrete 1‑day epochs** for stake updates.
 
-For a given post:
+Let:
 
-- A        = total support stake on the post
-- D        = total challenge stake on the post
-- T        = A + D  (total stake on the post)
-- S        = total VSP supply
-- VS       = base Verity Score in range [-100, +100]
-- v        = abs(VS) / 100  (verity magnitude in [0,1])
-- side     = 0 (support) or 1 (challenge) for a given StakeLot
-- i        = 1-based queue position index on that side
-- N_side   = total stake lots on that side
-- R_min    = governance-controlled minimum annual rate
-- R_max    = governance-controlled maximum annual rate
-- alpha    = post size sensitivity exponent (> 0)
-- P_min    = minimum post reward factor (0 < P_min <= 1)
-- P_max    = maximum post reward factor (P_min <= P_max <= 1)
-- dt       = time step length in years (for discrete update)
-- n        = current amount staked in a given StakeLot
-- n_next   = updated stake amount after one step
-- r_eff    = effective annual rate for the post
-- r_user   = effective annual rate for a specific StakeLot
+- EPOCH_SECONDS = 86_400
+- YEAR_SECONDS = 31_536_000
+- dt = EPOCH_SECONDS / YEAR_SECONDS = 1/365
 
-A.2. Base Verity Score
+At the **start of each epoch**, the following values are snapshotted:
 
-Given A (support) and D (challenge), with T = A + D and T > 0:
+- Per post:
+  - A = support total
+  - D = challenge total
+  - T = A + D
+  - VS = Verity Score
+  - f_post
+- Global:
+  - S_max = max(T across all active posts)
+  - N_max = max(queue length in stake units across posts)
+- Per lot:
+  - stake-span endpoints for positional factor
+
+Stake created during an epoch begins earning in the **next epoch**.
+
+A.2. Base Verity Score (VS)
+---------------------------
+
+Given:
+
+- A = support total
+- D = challenge total
+- T = A + D
+
+If T > 0:
 
     VS = (2 * (A / T) - 1) * 100
 
-Clamp VS to [-100, +100].
-If T is below the posting fee, implementations MAY treat VS as 0 for economics.
+Clamp VS into [-100, +100].
 
-A.3. Post Reward Factor P (anti-fracturing)
+Define:
 
-Define x as the fraction of total supply staked on this post:
+    v = abs(VS) / 100
 
-    x = T / S
+A.3. Post Size Factor f_post
+----------------------------
 
-Define the raw post factor:
+Let:
 
-    P_raw = x ^ alpha
+- T = total stake on post
+- S_max = largest T on any active post
 
-Then clamp into a governance-defined band:
+Then:
 
-    P = clamp(P_raw, P_min, P_max)
+    f_post = T / S_max
 
-Where clamp is:
+A.4. Positional Factor f_pos
+-----------------------------
 
-    clamp(y, a, b) = min(max(y, a), b)
+Queue positions are measured **from the tail**.
 
-Intuition: larger, more consolidated posts (higher T relative to S)
-produce a larger P (up to P_max), making it better to stake into one
-shared post than to fracture into many tiny clones.
+Example:
 
-A.4. Effective Annual Rate r_eff
+    Total stake = 4.1
 
-Given verity magnitude v and post factor P:
+    A stakes 1.5 → [4.1, 2.6]
+    B stakes 1.5 → [2.6, 1.1]
+    C stakes 1.1 → [1.1, 0.0]
 
-    r_eff = R_min + (R_max - R_min) * v * P
+For a lot span:
 
-Properties:
+    [x_end, x_start]
 
-- If VS = 0, then v = 0 and r_eff = R_min * P_min (or simply R_min, depending
-  on how clamp is chosen). Implementations may choose to override this and
-  treat VS = 0 as r_eff = 0 for economic neutrality.
+Compute:
 
-- If abs(VS) = 100 and T is large relative to S, then v = 1 and P is near P_max,
-  so r_eff tends toward R_max.
+    pos_i = (x_end + x_start) / 2
 
-A.5. Positional Weighting w_i
+Normalize:
 
-Stake lots on each side (support/challenge) are ordered by arrival time.
-Position 1 is the earliest, highest-risk lot on that side.
+    f_pos = pos_i / N_max
 
-Define harmonic weights:
+Clamp to [0,1].
 
-    H_N = sum_{j=1..N_side} (1 / j)
+A.5. Effective Annual Rate r_eff
+--------------------------------
 
-    w_i = (1 / i) / H_N
+Given R_min, R_max, v, f_post:
 
-So:
+    r_eff = R_min + (R_max - R_min) * v * f_post
 
-- w_1 is largest
-- w_i decreases with i
-- sum of w_i over i from 1 to N_side is 1
+A.6. Side Alignment sgn
+-----------------------
 
-A.6. Side Alignment and Sign sgn
+If VS == 0:
 
-Define sgn (the sign of the effective rate for a lot) as:
-
-- If VS == 0:
     sgn = 0
-- Else if side matches the sign of VS (support when VS > 0, challenge when VS < 0):
+
+Else if (support AND VS > 0) or (challenge AND VS < 0):
+
     sgn = +1
-- Else:
+
+Else:
+
     sgn = -1
 
-A.7. Per-lot Annual Rate r_user
+A.7. Per-Lot Annual Rate r_user
+-------------------------------
 
-If VS == 0, we treat the position as neutral:
+If VS == 0:
 
     r_user = 0
 
 Else:
 
-    r_user = sgn * r_eff * w_i
+    r_user = sgn * r_eff * f_pos
 
-Where r_eff is from A.4 and w_i is from A.5.
+A.8. Epoch Update (Linear)
+--------------------------
 
-A.8. Discrete Stake Update n_next
+Let n = current stake amount.
 
-For a single time step dt (in years) for a given StakeLot with amount n:
+If VS == 0:
 
-- If VS == 0 or T is below the posting fee threshold:
+    n_next = n
 
-      n_next = n
+Else:
 
-- Else:
-
-      delta = n * r_user * dt
-      n_next = max(0, n + delta)
-
-Where r_user is from A.7.
-
-Key behaviors:
-
-- If sgn > 0 (aligned with VS), and VS is large in magnitude, and the post
-  is large (P high), and the position is early (w_i high), then n_next can
-  grow meaningfully over time.
-
-- If sgn < 0 (opposed to VS) under the same conditions, n_next will shrink,
-  potentially to zero (full economic loss).
-
-- If a player moves from a large, old post into a tiny new post,
-  they lose the high P associated with the large post and thus lose access
-  to the best effective rates.
+    delta = n * r_user * dt
+    n_next = max(0, n + delta)
 
 -------------------------------------------------------------------------------
 Appendix B. Behavioral Notes (Informative)
 -------------------------------------------------------------------------------
 
-B.1. Neutral Verity Score (VS = 0)
+B.1. Neutral VS
+---------------
 
-When VS is exactly zero, the interpretation is "market unclear". The economic
-model sets:
+VS = 0 → no one gains or loses.
 
-- r_user = 0
-- n_next = n
+B.2. Anti-Fracturing
+---------------------
 
-for that period. This avoids punishing or rewarding either side when the
-truth pressure is neutral.
+f_post = T / S_max ensures:
 
-B.2. Incentive Against Post Fracturing
+- Large shared posts → high f_post → high r_eff.
+- Small fractured posts → low f_post → poor economics.
 
-Because the post reward factor P depends on T / S (total stake on the post
-relative to total supply), small fractured posts have lower P values and thus
-yield lower effective rates, even for early stakers.
+B.3. Challenge Instead of Clone
+-------------------------------
 
-Roughly:
+A challenger on a large post inherits its high f_post rather than starting
+a new tiny post with low f_post.
 
-- Everyone staking into one big canonical post will enjoy higher P and thus
-  be closer to R_max (up to the harmonic and sign-based adjustments).
+B.4. Queue Incentives
+---------------------
 
-- The last staker on a large, high-P post will generally not be able to
-  improve their situation by peeling off into a new tiny post, because the
-  drop in P outweighs any positional advantage.
+Early stakers on large queues get top f_pos.
+Late stakers get smaller f_pos.
 
-B.3. Incentive To Challenge Instead Of Clone
+B.5. Implementation Flexibility
+-------------------------------
 
-If a player disagrees with an existing claim, they can:
+Solidity implementations may:
 
-- Challenge the existing post (side = challenge), gaining access to the same
-  post-level P (and thus potentially high rates if they are correct), or
+- Update on stake/withdraw operations,
+- Use per-post tick functions,
+- Cache snapshot values per epoch,
+- Adjust R_min, R_max, epoch length, etc. via governance.
 
-- Create a new contradictory post with a very small T and thus small P,
-  which is less attractive economically.
-
-This structure encourages players to concentrate stake on a shared set of
-canonical posts and use the challenge side rather than proliferating duplicate
-or conflicting posts to farm "first position".
-
-B.4. Implementation Flexibility
-
-The actual Solidity implementation may:
-
-- Apply rate updates on stake/withdraw operations, on a per-post update call,
-  or via a keeper pattern.
-- Approximate dt based on block timestamps and a chosen time granularity.
-- Choose concrete values for R_min, R_max, alpha, P_min, P_max via governance.
-- Expose additional view functions for analytics (for example, per-lot
-  effective rate estimates).
-
-As long as the semantics remain consistent with this appendix and the ABI in
-the main body, implementations are considered conformant.
+-------------------------------------------------------------------------------
