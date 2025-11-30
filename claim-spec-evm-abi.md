@@ -1,5 +1,5 @@
 # VeriSphere Claim and Staking Specification (EVM-ABI Formal Style)
-Version: 0.3 (MVP Draft, ASCII only)
+Version: 0.4 (MVP Draft, ASCII only)
 
 This document defines the ABI-level specification for the core VeriSphere
 on-chain components:
@@ -18,6 +18,8 @@ All economic and behavioral explanations are in the appendices.
 -------------------------------------------------------------------------------
 
 NOTE: These structs are conceptual. Actual storage layout and packing may vary.
+Implementations MAY use different internal representations as long as they can
+reproduce the same semantics at the ABI boundary.
 
 ----------------------------------------
 1.1 Post
@@ -28,22 +30,42 @@ struct Post {
     address creator;
     uint256 timestamp;
     string  text;
-    uint256 supportTotal;
-    uint256 challengeTotal;
+    uint256 supportTotal;    // total stake on support side
+    uint256 challengeTotal;  // total stake on challenge side
 }
 ```
+
 ----------------------------------------
-1.2 StakeLot
+1.2 StakeSegment
 ----------------------------------------
+A StakeSegment represents a contiguous range on a side-specific stake axis
+for a given post. The axis is denominated in VSP units and ordered from
+"latest stake" at 0 up to "earliest stake" at totalSideStake.
+
 ```
-struct StakeLot {
+struct StakeSegment {
     address staker;
-    uint256 amount;
-    uint8   side;           // 0 = support, 1 = challenge
-    uint32  positionIndex;  // queue index on chosen side
-    uint256 entryTimestamp;
+    uint8   side;        // 0 = support, 1 = challenge
+    uint256 amount;      // VSP amount represented by this segment
+    uint256 start;       // inclusive, in stake units, 0 = most recent
+    uint256 end;         // exclusive, in stake units, end > start
+    uint256 timestamp;   // last movement affecting this segment
 }
 ```
+
+Semantics:
+
+- For a given (postId, side), all segments form a partition of
+  [0, totalSideStake] with no gaps and no overlaps.
+- New stake is appended at the "tail" of the queue:
+    - New segment is [0, amount]
+    - Existing segments have their [start, end] shifted upward by +amount
+- Earliest stake (highest risk) sits at the highest coordinates on the axis.
+
+Implementations MAY choose more gas-efficient internal representations (e.g.,
+per-staker aggregates, prefix sums) but MUST preserve the logical meaning of
+segment positions and midpoints as described in Appendix A.
+
 ----------------------------------------
 1.3 Relation
 ----------------------------------------
@@ -52,9 +74,10 @@ struct Relation {
     uint256 fromPost;
     uint256 toPost;
     uint8   relationType;   // 0 = support, 1 = challenge
-    uint256 ctxStake;
+    uint256 ctxStake;       // contextual stake associated with this edge
 }
 ```
+
 -------------------------------------------------------------------------------
 2. IPostRegistry ABI
 -------------------------------------------------------------------------------
@@ -81,6 +104,7 @@ interface IPostRegistry {
 
     /// @notice Optional convenience view for base Verity Score.
     /// @dev Implementations may compute VS on-chain or off-chain.
+    ///      If unimplemented, callers should derive VS externally.
     function getVerityScore(uint256 postId)
         external
         view
@@ -99,6 +123,7 @@ interface IPostRegistry {
     error EmptyText();
 }
 ```
+
 -------------------------------------------------------------------------------
 3. IStakeEngine ABI
 -------------------------------------------------------------------------------
@@ -114,28 +139,38 @@ interface IStakeEngine {
         uint256 amount
     ) external;
 
-    /// @notice Withdraw some or all of a stake lot.
-    /// @param postId   The target post id.
-    /// @param lotIndex Index of the stake lot in that post-side queue.
-    /// @param amount   Amount to withdraw from that lot (must be > 0 and <= lot amount).
+    /// @notice Withdraw some or all stake from a given segment.
+    /// @param postId        The target post id.
+    /// @param side          0 = support, 1 = challenge.
+    /// @param segmentIndex  Index of the segment in that post-side queue.
+    /// @param amount        Amount to withdraw from that segment (must be > 0 and <= segment amount).
     function withdraw(
         uint256 postId,
-        uint256 lotIndex,
+        uint8 side,
+        uint256 segmentIndex,
         uint256 amount
     ) external;
 
-    /// @notice View all stake lots on a given side of a post.
-    /// @dev Ordering reflects queue position (0 = earliest stake).
-    function getStakeLots(uint256 postId, uint8 side)
+    /// @notice View all stake segments on a given side of a post.
+    /// @dev Ordering reflects queue position by axis coordinate:
+    ///      segments[0] has the lowest [start, end],
+    ///      segments[segments.length - 1] has the highest.
+    function getStakeSegments(uint256 postId, uint8 side)
         external
         view
-        returns (StakeLot[] memory);
+        returns (StakeSegment[] memory);
 
     /// @notice Optional view: total stake per side (for off-chain VS or analytics).
     function getTotals(uint256 postId)
         external
         view
         returns (uint256 supportTotal, uint256 challengeTotal);
+
+    /// @notice Optional view: total stake length for a given side of a post.
+    function getSideTotal(uint256 postId, uint8 side)
+        external
+        view
+        returns (uint256 sideTotal);
 
     // Events
 
@@ -144,7 +179,8 @@ interface IStakeEngine {
         address indexed staker,
         uint8 side,
         uint256 amount,
-        uint32 positionIndex
+        uint256 start,
+        uint256 end
     );
 
     event StakeWithdrawn(
@@ -152,7 +188,8 @@ interface IStakeEngine {
         address indexed staker,
         uint8 side,
         uint256 amount,
-        uint32 positionIndex
+        uint256 start,
+        uint256 end
     );
 
     // Errors
@@ -160,9 +197,11 @@ interface IStakeEngine {
     error InvalidSide();
     error AmountZero();
     error NotStaker();
-    error InvalidLotIndex();
+    error InvalidSegmentIndex();
+    error WithdrawTooLarge();
 }
 ```
+
 -------------------------------------------------------------------------------
 4. ILinkGraph ABI
 -------------------------------------------------------------------------------
@@ -202,6 +241,7 @@ interface ILinkGraph {
     error CycleDetected();
 }
 ```
+
 -------------------------------------------------------------------------------
 5. IVSPToken ABI (subset)
 -------------------------------------------------------------------------------
@@ -219,6 +259,18 @@ interface IVSPToken {
     /// @dev Restricted to authorized burners in Authority.
     function burnFrom(address from, uint256 amount) external;
 
+    /// @notice Transfer tokens to another address.
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    /// @notice Transfer tokens from one address to another, subject to allowance.
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
+    /// @notice Approve another address to spend tokens on behalf of msg.sender.
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+
     // Standard ERC20 events
 
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -230,6 +282,7 @@ interface IVSPToken {
     error NotBurner();
 }
 ```
+
 -------------------------------------------------------------------------------
 6. IAuthority ABI (subset)
 -------------------------------------------------------------------------------
@@ -252,12 +305,13 @@ interface IAuthority {
     error NotOwner();
 }
 ```
+
 -------------------------------------------------------------------------------
 7. Versioning
 -------------------------------------------------------------------------------
 
 - Specification name: claim-spec-evm-abi
-- Version: 0.3-mvp
+- Version: 0.4-mvp
 - Chain target: Avalanche C-Chain / Subnet (EVM compatible)
 
 Implementations should expose an on-chain constant or function that encodes
@@ -267,191 +321,257 @@ their spec version, for example:
 
 Or a bytes32 constant representing a hash of this document.
 
-# VeriSphere Claim Specification – Appendices (Epoch-Based, Linear)
-
-Version: 0.4 (MVP)  
-ASCII only
-
-These appendices replace Appendix A and Appendix B in claim_spec_evm_abi.md,
-incorporating:
-
-- Epoch length = 1 day
-- Linear compounding per epoch
-- Final definitions for f_post and f_pos
-
 -------------------------------------------------------------------------------
 Appendix A. Economic Model (Informative)
 -------------------------------------------------------------------------------
 
-A.1. Epoch Structure
---------------------
+This appendix describes the intended economics for stake growth and loss.
+It is not ABI, but semantic guidance for implementers and auditors.
 
-VeriSphere uses **discrete 1‑day epochs** for stake updates.
+A.1. Symbols
+
+For a given post and a given epoch (default: 1 day):
+
+- A         = total support stake on the post
+- D         = total challenge stake on the post
+- T_post    = A + D  (total stake on the post)
+- T_max     = maximum T_post across all active posts (T_max > 0)
+- VS        = base Verity Score in range [-100, +100]
+- v         = abs(VS) / 100  (verity magnitude in [0,1])
+- side      = 0 (support) or 1 (challenge) for a given StakeSegment
+- sgn       = alignment sign (+1, 0, -1; see A.5)
+- R_min     = governance-controlled minimum annual rate (per year)
+- R_max     = governance-controlled maximum annual rate (per year)
+- f_post    = post size factor in [0,1]
+- f_pos     = positional factor in [0,1] for a segment on a side queue
+- r_eff     = effective annual rate at the post level
+- r_user    = effective annual rate for a specific segment
+- r_epoch   = effective per-epoch rate for a specific segment
+- dt_year   = epoch length in years (for 1 day: 1/365)
+- n         = current amount staked in a given StakeSegment at epoch start
+- n_next    = updated stake amount after one epoch
+
+Unless otherwise changed by governance, the default epoch length is 1 day
+and compounding is linear per epoch (simple interest per step).
+
+A.2. Base Verity Score
+
+Given A (support) and D (challenge), with T_post = A + D and T_post > 0:
+
+    VS = (2 * (A / T_post) - 1) * 100
+
+Clamp VS to [-100, +100].
+
+If T_post is below the posting fee threshold, implementations MAY treat VS
+as 0 for economics (no gain or loss until the post has "enough" skin in the game).
+
+A.3. Post Size Factor f_post (anti-fracturing)
+
+Let T_post be the total stake on this post and T_max be the maximum total
+stake among all active posts (T_max > 0). Define:
+
+    f_post = T_post / T_max
+
+Properties:
+
+- 0 < f_post <= 1 for any active post with non-zero stake.
+- The largest post (by total stake) has f_post = 1.
+- Smaller posts have f_post less than 1.
+
+Intuition: concentrating stake into a shared canonical post is economically
+superior to fragmenting that stake across many tiny posts.
+
+A.4. Side Queue and Positional Factor f_pos
+
+For each post and each side (support or challenge), we define a stake axis
+in units of VSP:
+
+- The axis runs from 0 (most recent stake) up to L_side (total stake on that side).
+- Each StakeSegment covers [start, end] with 0 <= start < end <= L_side.
+- Segments partition [0, L_side] with no gaps or overlaps.
+
+When a new stake of amount "a" is added to that side:
+
+- The new segment for the caller is logically [0, a].
+- All existing segments are shifted upward by +a on both start and end.
+- Thus, earlier stakes occupy larger coordinate values and are considered
+  "ahead in the queue".
 
 Let:
+- L_side = total stake on that side of the post (support or challenge).
+- N_max  = maximum L_side across all posts and sides (L_side > 0, N_max > 0).
 
-- EPOCH_SECONDS = 86_400
-- YEAR_SECONDS = 31_536_000
-- dt = EPOCH_SECONDS / YEAR_SECONDS = 1/365
+For a segment with coordinates [start, end], define its midpoint:
 
-At the **start of each epoch**, the following values are snapshotted:
+    m = (start + end) / 2
 
-- Per post:
-  - A = support total
-  - D = challenge total
-  - T = A + D
-  - VS = Verity Score
-  - f_post
-- Global:
-  - S_max = max(T across all active posts)
-  - N_max = max(queue length in stake units across posts)
-- Per lot:
-  - stake-span endpoints for positional factor
+Then define the positional factor:
 
-Stake created during an epoch begins earning in the **next epoch**.
+    f_pos = m / N_max
 
-A.2. Base Verity Score (VS)
----------------------------
+Properties:
 
-Given:
+- Segments closer to the "front" (earliest stakes) have higher m and thus higher f_pos.
+- Segments closer to the "back" (most recent stakes) have lower m and thus lower f_pos.
+- On the largest queues (L_side near N_max), early segments can achieve f_pos near 1.
 
-- A = support total
-- D = challenge total
-- T = A + D
+This ensures that:
 
-If T > 0:
+- Earliest stakes on the largest, most important posts get the strongest
+  reward or penalty (largest magnitude effect).
+- Late or small-post stakes sit closer to f_pos near 0.
 
-    VS = (2 * (A / T) - 1) * 100
+A.5. Alignment Sign sgn
 
-Clamp VS into [-100, +100].
+Define sgn, the sign of the effective rate for a segment, as:
 
-Define:
+- If VS == 0:
+      sgn = 0
+- Else if side matches the sign of VS:
+      (support when VS > 0, challenge when VS < 0)
+      sgn = +1
+- Else:
+      sgn = -1
 
-    v = abs(VS) / 100
+This captures:
 
-A.3. Post Size Factor f_post
-----------------------------
+- Aligned with truth pressure -> positive sign (potential growth).
+- Opposed to truth pressure -> negative sign (potential decay).
+- Neutral truth pressure (VS = 0) -> no change.
 
-Let:
+A.6. Effective Annual Rate r_eff
 
-- T = total stake on post
-- S_max = largest T on any active post
+Combine verity magnitude v, post factor f_post and the global rate band:
 
-Then:
-
-    f_post = T / S_max
-
-A.4. Positional Factor f_pos
------------------------------
-
-Queue positions are measured **from the tail**.
-
-Example:
-
-    Total stake = 4.1
-
-    A stakes 1.5 → [4.1, 2.6]
-    B stakes 1.5 → [2.6, 1.1]
-    C stakes 1.1 → [1.1, 0.0]
-
-For a lot span:
-
-    [x_end, x_start]
-
-Compute:
-
-    pos_i = (x_end + x_start) / 2
-
-Normalize:
-
-    f_pos = pos_i / N_max
-
-Clamp to [0,1].
-
-A.5. Effective Annual Rate r_eff
---------------------------------
-
-Given R_min, R_max, v, f_post:
-
+    v = abs(VS) / 100       // in [0,1]
     r_eff = R_min + (R_max - R_min) * v * f_post
 
-A.6. Side Alignment sgn
------------------------
+Notes:
 
-If VS == 0:
+- If VS = 0, then v = 0 and r_eff = R_min.
+  However, we will neutralize VS = 0 at the segment level (see A.8),
+  so no net gain or loss occurs in that case.
+- If abs(VS) is large and the post is large (f_post near 1), then r_eff
+  can approach R_max in magnitude for aligned segments, and -R_max for
+  misaligned segments after applying sgn and f_pos.
 
-    sgn = 0
+A.7. Per-segment Annual Rate r_user
 
-Else if (support AND VS > 0) or (challenge AND VS < 0):
-
-    sgn = +1
-
-Else:
-
-    sgn = -1
-
-A.7. Per-Lot Annual Rate r_user
--------------------------------
-
-If VS == 0:
-
-    r_user = 0
-
-Else:
+Given r_eff, f_pos, and sgn:
 
     r_user = sgn * r_eff * f_pos
 
-A.8. Epoch Update (Linear)
---------------------------
+Interpretation:
 
-Let n = current stake amount.
+- Aligned early stakes on large posts (sgn = +1, f_pos near 1, f_post near 1)
+  experience rates near +R_max.
+- Misaligned early stakes on large posts (sgn = -1, f_pos near 1, f_post near 1)
+  experience rates near -R_max (rapid burn).
+- Late stakes (small f_pos) and small posts (small f_post) see muted effects.
 
-If VS == 0:
+A.8. Epoch Rate and Discrete Stake Update n_next
 
-    n_next = n
+The protocol uses discrete epochs of length 1 day and linear compounding.
+Let:
 
-Else:
+    dt_year = 1 / 365       // epoch length in years (approximate)
 
-    delta = n * r_user * dt
-    n_next = max(0, n + delta)
+First, derive the per-epoch rate r_epoch from the annual r_user:
+
+    r_epoch = r_user * dt_year
+
+Then, for a segment with amount n at the start of the epoch, the updated
+amount n_next at the end of the epoch is:
+
+- If VS == 0 or T_post is below the posting fee threshold:
+
+      n_next = n
+
+- Else:
+
+      n_next = max(0, n * (1 + r_epoch))
+
+Key behaviors:
+
+- If sgn > 0 (aligned) and the post is large and early in the queue,
+  n grows over time, approaching an annualized return near R_max.
+- If sgn < 0 (misaligned) under the same conditions, n shrinks, potentially
+  to zero (full loss).
+- If VS = 0, no side gains or loses stake during that epoch.
+- If a staker peels off from a large canonical post into a tiny post,
+  f_post drops sharply, so r_user and thus r_epoch drop, preventing them
+  from gaming "first position" on trivial posts.
 
 -------------------------------------------------------------------------------
 Appendix B. Behavioral Notes (Informative)
 -------------------------------------------------------------------------------
 
-B.1. Neutral VS
----------------
+B.1. Neutral Verity Score (VS = 0)
 
-VS = 0 → no one gains or loses.
+When VS is exactly zero, the interpretation is "market unclear".
+The economic model sets:
 
-B.2. Anti-Fracturing
----------------------
+    r_user  = 0
+    r_epoch = 0
+    n_next  = n
 
-f_post = T / S_max ensures:
+for that epoch. This avoids punishing or rewarding either side when the
+truth pressure is neutral.
 
-- Large shared posts → high f_post → high r_eff.
-- Small fractured posts → low f_post → poor economics.
+B.2. Incentive Against Post Fracturing
 
-B.3. Challenge Instead of Clone
--------------------------------
+Because the post factor f_post is T_post / T_max, small fractured posts have
+lower f_post and thus lower effective rates, even if a staker manages to
+obtain an early position on those posts.
 
-A challenger on a large post inherits its high f_post rather than starting
-a new tiny post with low f_post.
+Roughly:
 
-B.4. Queue Incentives
----------------------
+- Everyone staking into one big canonical post will enjoy higher f_post and
+  thus be closer to the top of the R_min to R_max band (subject to VS and
+  f_pos).
+- The last staker on a large, high-f_post post will generally not be able
+  to improve their situation by peeling off into a new tiny post, because
+  the drop in f_post outweighs any positional advantage at f_pos.
 
-Early stakers on large queues get top f_pos.
-Late stakers get smaller f_pos.
+B.3. Incentive To Challenge Instead Of Clone
+
+If a player disagrees with an existing claim, they can:
+
+- Challenge the existing post (side = challenge), gaining access to the same
+  f_post (and thus potentially high magnitude rates if they are correct), or
+
+- Create a new contradictory post with a very small T_post and thus small
+  f_post, which is less attractive economically.
+
+This structure encourages players to concentrate stake on a shared set of
+canonical posts and use the challenge side rather than proliferating
+duplicate or conflicting posts to farm "first position".
+
+B.4. Epoch Mechanics
+
+The implementation is free to choose how to apply epoch-based updates, for example:
+
+- Apply updates lazily whenever a stake or withdrawal occurs, using the
+  difference in timestamps to estimate how many epochs have passed.
+- Use a keeper or cron-like mechanism to periodically call an update
+  function on busy posts.
+- Batch updates for gas efficiency.
+
+All such mechanisms should be consistent with the linear per-epoch update
+described above and use R_min, R_max, and dt_year as parameterized by
+governance.
 
 B.5. Implementation Flexibility
--------------------------------
 
-Solidity implementations may:
+The actual Solidity implementation may:
 
-- Update on stake/withdraw operations,
-- Use per-post tick functions,
-- Cache snapshot values per epoch,
-- Adjust R_min, R_max, epoch length, etc. via governance.
+- Approximate dt_year more precisely (e.g., 1 / 365.25).
+- Choose concrete values for R_min and R_max via governance.
+- Store segments in a compressed or aggregated way (for example, one segment
+  per staker per side per post) as long as the queue semantics and midpoint-
+  based interpretation are preserved.
+- Expose additional view functions for analytics (for example, per-segment
+  effective rate estimates).
 
--------------------------------------------------------------------------------
+As long as the semantics remain consistent with this appendix and the ABI in
+the main body, implementations are considered conformant.
