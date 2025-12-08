@@ -1,5 +1,5 @@
 # VeriSphere Claim and Staking Specification (EVM-ABI Formal Style)
-Version: 0.4 (MVP Draft, ASCII only)
+Version: 0.5 (MVP Draft, ASCII only, link-aware)
 
 This document defines the ABI-level specification for the core VeriSphere
 on-chain components:
@@ -13,63 +13,80 @@ on-chain components:
 The main body is pure ABI (interfaces, structs, events, errors).
 All economic and behavioral explanations are in the appendices.
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 1. Core Data Structures
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
-NOTE: These structs are conceptual. Actual storage layout and packing may vary.
+Note: These structs are conceptual. Actual storage layout and packing may vary.
 
-----------------------------------------
-1.1 Post
-----------------------------------------
-```solidity
+## 1.1 Post
+
+A Post is an atomic claim. Optionally it may act as a link from one claim to
+another via targetPostId.
+
+- targetPostId = 0      -> standalone claim
+- targetPostId > 0      -> this post supports post targetPostId
+- targetPostId < 0      -> this post challenges post abs(targetPostId)
+
+Post-level support and challenge from direct stake are tracked separately from
+link-based influence (which is handled by LinkGraph).
+
 struct Post {
-    uint256 postId;
     address creator;
     uint256 timestamp;
     string  text;
-    uint256 supportTotal;
-    uint256 challengeTotal;
-}
-```
+    int256  targetPostId;    // 0 = standalone, >0 support link, <0 challenge link
 
-----------------------------------------
-1.2 StakeLot
-----------------------------------------
-```solidity
+    // Direct stake on this post (from StakeEngine)
+    uint256 directSupportTotal;
+    uint256 directChallengeTotal;
+}
+
+## 1.2 StakeLot
+
+A StakeLot is a single, independent staking position in a post-side queue.
+Multiple lots from the same staker are treated independently. Each lot has
+a begin, end, and mid position within the side queue, used for queue-based
+weighting.
+
 struct StakeLot {
     address staker;
     uint256 amount;
-    uint8   side;           // 0 = support, 1 = challenge
-    uint256 entryTimestamp; // unix timestamp of deposit
+    uint8   side;          // 0 = support, 1 = challenge
+    uint256 begin;         // queue position start (from last toward first)
+    uint256 end;           // queue position end
+    uint256 mid;           // (begin + end) / 2
+    uint256 entryEpoch;    // epoch index when lot was created
 }
-```
 
-----------------------------------------
-1.3 Relation
-----------------------------------------
-```solidity
+## 1.3 Relation
+
+A Relation is an explicit link between two posts. It is created in the
+LinkGraph and carries contextual stake (ctxStake). The economic impact of
+links is modeled via LinkGraph summary functions, not by walking the full DAG
+in StakeEngine.
+
 struct Relation {
-    uint256 fromPost;
-    uint256 toPost;
+    uint256 fromPost;       // child / evidence post
+    uint256 toPost;         // parent / target post
     uint8   relationType;   // 0 = support, 1 = challenge
-    uint256 ctxStake;
+    uint256 ctxStake;       // stake locked into this relation context
 }
-```
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 2. IPostRegistry ABI
--------------------------------------------------------------------------------
-```solidity
+------------------------------------------------------------------------------
+
 interface IPostRegistry {
-    /// @notice Create a new immutable post (atomic claim).
-    /// @param text The claim text, expected to be atomic and non-empty.
-    /// @return postId The newly assigned post identifier.
-    function createPost(string calldata text)
+    // Create a new immutable post (atomic claim).
+    // text           Claim text, expected to be atomic and non-empty.
+    // targetPostId   0 for standalone; >0 supports that post; <0 challenges it.
+    // Returns        Newly assigned postId.
+    function createPost(string calldata text, int256 targetPostId)
         external
         returns (uint256 postId);
 
-    /// @notice Read a post by id.
+    // Read a post by id.
     function getPost(uint256 postId)
         external
         view
@@ -77,13 +94,23 @@ interface IPostRegistry {
             address creator,
             uint256 timestamp,
             string memory text,
-            uint256 supportTotal,
-            uint256 challengeTotal
+            int256 targetPostId,
+            uint256 directSupportTotal,
+            uint256 directChallengeTotal
         );
 
-    /// @notice Optional convenience view for base Verity Score.
-    /// @dev Implementations may compute VS on-chain or off-chain.
-    function getVerityScore(uint256 postId)
+    // Called by StakeEngine to sync direct stake totals for this post.
+    function setDirectTotals(
+        uint256 postId,
+        uint256 supportTotal,
+        uint256 challengeTotal
+    ) external;
+
+    // Convenience view for the base verity score using direct stake only.
+    // This does not include link-based influence. Economic calculations
+    // in StakeEngine will use effective totals that combine direct stake
+    // with LinkGraph summaries (see Appendix A).
+    function getBaseVerityScore(uint256 postId)
         external
         view
         returns (int256 vs);
@@ -93,64 +120,65 @@ interface IPostRegistry {
     event PostCreated(
         uint256 indexed postId,
         address indexed creator,
+        int256 targetPostId,
         string text
+    );
+
+    event DirectTotalsUpdated(
+        uint256 indexed postId,
+        uint256 supportTotal,
+        uint256 challengeTotal
     );
 
     // Errors
 
     error EmptyText();
+    error InvalidTargetSelf();
+    error NotStakeEngine();
 }
-```
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 3. IStakeEngine ABI
--------------------------------------------------------------------------------
-```solidity
-interface IStakeEngine {
-    struct StakeLot {
-        address staker;
-        uint256 amount;
-        uint8   side;           // 0 = support, 1 = challenge
-        uint256 entryTimestamp; // unix timestamp of deposit
-    }
+------------------------------------------------------------------------------
 
-    /// @notice Stake VSP on a post, on either support or challenge side.
-    /// @param postId The target post id.
-    /// @param side   0 = support, 1 = challenge.
-    /// @param amount Amount of VSP to stake (must be non-zero).
+interface IStakeEngine {
+    // Stake VSP on a post, on either support or challenge side.
+    // postId   Target post id.
+    // side     0 = support, 1 = challenge.
+    // amount   Amount of VSP to stake (must be non-zero).
     function stake(
         uint256 postId,
         uint8 side,
         uint256 amount
     ) external;
 
-    /// @notice Withdraw stake from a post using FIFO or LIFO selection.
-    /// @dev This walks the caller's StakeLots on the chosen side, in FIFO or
-    ///      LIFO order, until the requested amount is reached.
-    /// @param postId   The target post id.
-    /// @param side     0 = support, 1 = challenge.
-    /// @param amount   Total amount to withdraw across lots.
-    /// @param useLifo  If true, withdraw from latest lots first; otherwise
-    ///                 withdraw from earliest lots first.
+    // Withdraw stake from a post, choosing FIFO or LIFO across the caller's lots.
+    // postId   Target post id.
+    // side     0 = support, 1 = challenge.
+    // amount   Total amount to withdraw.
+    // lifo     If true, withdraw latest lots first; if false, earliest first.
     function withdraw(
         uint256 postId,
         uint8 side,
         uint256 amount,
-        bool useLifo
+        bool lifo
     ) external;
 
-    /// @notice View all stake lots on a given side of a post.
-    /// @dev Ordering reflects arrival time (index 0 = earliest stake).
-    function getStakeLots(uint256 postId, uint8 side)
-        external
-        view
-        returns (StakeLot[] memory);
+    // Apply daily epoch growth/decay to all lots for a post.
+    // Any address may call; typically a keeper or backend.
+    function updatePost(uint256 postId) external;
 
-    /// @notice Optional view: total stake per side (for off-chain VS or analytics).
-    function getTotals(uint256 postId)
+    // View total direct stake per side for a post.
+    function getPostTotals(uint256 postId)
         external
         view
         returns (uint256 supportTotal, uint256 challengeTotal);
+
+    // View lots on a given side for a post.
+    function getLots(uint256 postId, uint8 side)
+        external
+        view
+        returns (StakeLot[] memory);
 
     // Events
 
@@ -165,28 +193,39 @@ interface IStakeEngine {
         uint256 indexed postId,
         address indexed staker,
         uint8 side,
-        uint256 amount
+        uint256 amount,
+        bool lifo
+    );
+
+    event PostUpdated(
+        uint256 indexed postId,
+        uint256 epoch,
+        uint256 supportTotal,
+        uint256 challengeTotal
     );
 
     // Errors
 
     error InvalidSide();
     error AmountZero();
-    error NotStaker();
-    error InsufficientStake();
+    error NotEnoughStake();
+    error ZeroAddressToken();
 }
-```
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 4. ILinkGraph ABI
--------------------------------------------------------------------------------
-```solidity
+------------------------------------------------------------------------------
+
 interface ILinkGraph {
-    /// @notice Create a contextual relation (edge) between two posts.
-    /// @param fromPost      Child post used as evidence or counter-evidence.
-    /// @param toPost        Parent post whose verity may be influenced.
-    /// @param relationType  0 = support, 1 = challenge.
-    /// @param ctxStake      VSP stake associated with this relation context.
+    // Create a contextual relation (edge) between two posts.
+    // fromPost      Child / evidence post id.
+    // toPost        Parent / target post id.
+    // relationType  0 = support, 1 = challenge.
+    // ctxStake      VSP stake associated with this relation context.
+    //
+    // Must enforce:
+    // - No cycles in the link graph (DAG only).
+    // - fromPost != toPost.
     function linkPosts(
         uint256 fromPost,
         uint256 toPost,
@@ -194,12 +233,19 @@ interface ILinkGraph {
         uint256 ctxStake
     ) external;
 
-    /// @notice View relations where the given post is the parent (toPost).
-    /// @dev Implementations may also expose per-fromPost views if needed.
+    // View relations where the given post is the parent (toPost).
     function getRelations(uint256 postId)
         external
         view
         returns (Relation[] memory);
+
+    // Summary view for economic use:
+    // Returns (linkSupportTotal, linkChallengeTotal) for the target post,
+    // using the ctxStake of each relation and its relationType.
+    function getLinkTotals(uint256 postId)
+        external
+        view
+        returns (uint256 linkSupportTotal, uint256 linkChallengeTotal);
 
     // Events
 
@@ -214,288 +260,295 @@ interface ILinkGraph {
 
     error InvalidRelationType();
     error CycleDetected();
+    error ZeroContextStake();
+    error InvalidPostId();
 }
-```
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 5. IVSPToken ABI (subset)
--------------------------------------------------------------------------------
-```solidity
+------------------------------------------------------------------------------
+
 interface IVSPToken {
-    /// @notice Mint new VSP to an address.
-    /// @dev Restricted to authorized minters in Authority.
+    // Mint new VSP to an address.
+    // Restricted to authorized minters in Authority.
     function mint(address to, uint256 amount) external;
 
-    /// @notice Burn VSP from msg.sender.
-    /// @dev Restricted to authorized burners in Authority.
+    // Burn VSP from msg.sender.
+    // Restricted to authorized burners in Authority.
     function burn(uint256 amount) external;
 
-    /// @notice Burn VSP from another address with allowance.
-    /// @dev Restricted to authorized burners in Authority.
+    // Burn VSP from another address with allowance.
+    // Restricted to authorized burners in Authority.
     function burnFrom(address from, uint256 amount) external;
 
-    // Standard ERC20 events
+    // Standard ERC20-like functions
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    // Standard ERC20 events
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
     // Role errors (logical; implementation may use revert strings instead)
-
     error NotMinter();
     error NotBurner();
 }
-```
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 6. IAuthority ABI (subset)
--------------------------------------------------------------------------------
-```solidity
+------------------------------------------------------------------------------
+
 interface IAuthority {
     // Views
-
     function owner() external view returns (address);
     function isMinter(address who) external view returns (bool);
     function isBurner(address who) external view returns (bool);
 
     // Events
-
     event OwnerChanged(address indexed oldOwner, address indexed newOwner);
     event MinterSet(address indexed who, bool enabled);
     event BurnerSet(address indexed who, bool enabled);
 
     // Errors
-
     error NotOwner();
 }
-```
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 7. Versioning
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 - Specification name: claim-spec-evm-abi
-- Version: 0.4-mvp
+- Version: 0.5-mvp-links
 - Chain target: Avalanche C-Chain / Subnet (EVM compatible)
 
-Implementations should expose an on-chain constant or function that encodes
+Implementations SHOULD expose an on-chain constant or function that encodes
 their spec version, for example:
 
     function specVersion() external pure returns (string memory);
 
 Or a bytes32 constant representing a hash of this document.
 
--------------------------------------------------------------------------------
-Appendix A. Economic Model (Informative)
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+Appendix A. Economic Model (Informative, Link-Aware)
+------------------------------------------------------------------------------
 
 This appendix describes the intended economics for stake growth and loss.
 It is not ABI, but semantic guidance for implementers and auditors.
 
 A.1. Symbols
 
-For a given post:
+For a given post P:
 
-- A        = total support stake on the post
-- D        = total challenge stake on the post
-- T        = A + D  (total stake on the post)
+- A        = direct support stake on P (from StakeEngine)
+- D        = direct challenge stake on P (from StakeEngine)
+- Lp       = support stake from incoming links (LinkGraph)
+- Lm       = challenge stake from incoming links (LinkGraph)
+- A_eff    = effective support = A + Lp
+- D_eff    = effective challenge = D + Lm
+- T_eff    = A_eff + D_eff  (total effective stake)
 - S_total  = total VSP supply
 - VS       = base Verity Score in range [-100, +100]
 - v        = abs(VS) / 100  (verity magnitude in [0,1])
 - side     = 0 (support) or 1 (challenge) for a given StakeLot
 - R_min    = governance-controlled minimum annual rate
 - R_max    = governance-controlled maximum annual rate
+- P_min    = minimum post reward factor (0 < P_min <= 1)
+- P_max    = maximum post reward factor (P_min <= P_max <= 1)
+- dt       = time step length in years (epoch length / 365)
 - n        = current amount staked in a given StakeLot
-- n_next   = updated stake amount after one step
-- r_eff    = effective annual rate for a post
+- r_eff    = effective annual rate for the post
 - r_user   = effective annual rate for a specific StakeLot
+- sMax     = global maximum total stake across all posts (monotonic)
+- mid      = midpoint of the StakeLot in the side queue, from last toward first
 
-Global, across posts:
+A.2. Base Verity Score (effective, link-aware)
 
-- S_max    = maximum T across all active posts (largest staked post)
-- m_i      = midpoint of queue segment occupied by StakeLot i
-- m_max    = maximum midpoint across all StakeLots on all active posts
+For a post P, using effective totals that include links:
 
-A.2. Base Verity Score
+    A_eff = A + Lp
+    D_eff = D + Lm
+    T_eff = A_eff + D_eff
 
-Given A (support) and D (challenge), with T = A + D and T > 0:
+If T_eff == 0, VS is defined as 0 (no information).
 
-    VS = (2 * (A / T) - 1) * 100
+Otherwise:
+
+    VS = (2 * (A_eff / T_eff) - 1) * 100
 
 Clamp VS to [-100, +100].
-If T is below the posting fee, implementations MAY treat VS as 0 for economics.
 
-A.3. Post Size Factor f_post
+Note: The base verity score stored or exposed by PostRegistry may consider only
+direct stake (A, D). The economic engine in StakeEngine MUST use A_eff and D_eff,
+combining direct stake with LinkGraph totals, when computing VS for growth/decay.
 
-Define S_post as the total stake T on a post. Let S_max be the largest T
-across all active posts in the system (posts with stake >= posting fee).
+A.3. Link Contributions
 
-    f_post = S_post / S_max
+Each relation in LinkGraph has:
 
-Properties:
+- relationType = 0 (support) or 1 (challenge)
+- ctxStake     = stake committed to that relation
 
-- 0 < f_post <= 1 for active posts
-- The largest post has f_post = 1
-- Smaller posts approach f_post near 0
+For a given target post P:
 
-This makes it economically preferable to concentrate stake into a canonical
-post rather than fracturing into many small posts.
+    Lp = sum of ctxStake over all relations with relationType = support and toPost = P
+    Lm = sum of ctxStake over all relations with relationType = challenge and toPost = P
 
-A.4. Queue Position Factor q_pos (Midpoint Based)
+The LinkGraph implementation SHOULD maintain these aggregates incrementally so
+that getLinkTotals(postId) is O(1). There is no recursive propagation; each link
+affects only its direct target, which keeps gas usage bounded.
 
-Each StakeLot occupies a contiguous segment of the queue on its side of a post.
-Stake is ordered by arrival time on that side.
+A.4. Post Reward Factor (size-based, anti-fracturing)
 
-We define queue position from "back to front" as follows:
+Define x as the fraction of total supply staked on this post:
 
-For a given side of a post, let cumulative stake start at 0 at the front
-(newest) and grow toward the back (oldest). If we list StakeLots from newest
-to oldest:
+    x = T_eff / S_total
 
-    lot 0: amount a0, occupies [0, a0]
-    lot 1: amount a1, occupies [a0, a0 + a1]
-    lot 2: amount a2, occupies [a0 + a1, a0 + a1 + a2]
-    ...
+We treat x as a fixed-point value in [0, 1]. For MVP, take a simple linear
+post factor and clamp it between P_min and P_max:
 
-In general, for StakeLot i in this newest-to-oldest ordering:
+    P_raw = x
+    P = clamp(P_raw, P_min, P_max)
 
-    low_i  = sum of a_j for j < i
-    high_i = low_i + a_i
+Where clamp(y, a, b) = min(max(y, a), b).
 
-The midpoint of StakeLot i's queue segment is:
+Intuition: Larger, more consolidated posts (higher T_eff relative to S_total)
+have higher P and thus earn rates nearer R_max, making it better to stake into
+shared canonical posts than to fracture stake into many tiny clones.
 
-    m_i = (low_i + high_i) / 2
+A.5. Effective Annual Rate r_eff
 
-Now define m_max as the maximum midpoint across all StakeLots on all active
-posts (on either side). Then the queue position factor for StakeLot i is:
+Given verity magnitude v and post factor P:
 
-    q_pos_i = m_i / m_max
+    r_eff = R_min + (R_max - R_min) * v * P
 
 Properties:
 
-- 0 < q_pos_i <= 1
-- StakeLots deeper in the queue (older stake) have larger midpoints and thus
-  larger q_pos_i
-- The deepest stake on the largest post tends toward q_pos_i = 1
+- If VS = 0, then v = 0 and r_eff collapses toward R_min (or 0, depending
+  on implementation). MVP may treat VS = 0 as r_eff = 0 for neutrality.
+- If abs(VS) = 100 and T_eff is large relative to S_total, then v = 1 and
+  P is near P_max, so r_eff tends toward R_max.
 
-A.5. Combined Effective Annual Rate r_eff
+A.6. Positional Weighting via mid and sMax
 
-First define a post-level verity factor v:
+Stake lots on each side are ordered by arrival time. The queue is laid out
+from last to first as a continuous axis, and each lot has a midpoint:
 
-    v = abs(VS) / 100
+- mid is between begin and end (see StakeLot definition)
+- sMax is the global maximum total stake observed across all posts
 
-Then define the post-level effective annual rate:
+Define the positional weight for a lot as:
 
-    r_post = R_min + (R_max - R_min) * v * f_post
+    w = mid / sMax
 
-For a particular StakeLot i on that post, we apply queue position factor:
+in fixed-point [0,1], clamped if needed. This means:
 
-    r_eff_i = r_post * q_pos_i
+- The earliest, largest stakes on the biggest posts have mid near sMax and
+  get w near 1.
+- Late, small stakes on small posts have w near 0.
 
-A.6. Side Alignment and Sign sgn
+A.7. Side Alignment and Sign
 
-Define sgn (the sign of the effective rate for a lot) as:
+Define sign alignment as:
 
-- If VS == 0:
-    sgn = 0
+- If VS == 0: sign = 0 (neutral)
 - Else if side matches the sign of VS (support when VS > 0, challenge when VS < 0):
-    sgn = +1
+    sign = +1
 - Else:
-    sgn = -1
+    sign = -1
 
-A.7. Per-lot Annual Rate r_user
+A.8. Per-lot Annual Rate r_user
 
-If VS == 0 or the post is below the economic activation threshold:
+If VS == 0 or T_eff is below the posting fee threshold, the lot is neutral:
 
     r_user = 0
 
 Else:
 
-    r_user = sgn * r_eff_i
+    r_user = sign * r_eff * w
 
-Where r_eff_i is from A.5 and sgn from A.6.
+Where r_eff is from A.5 and w is from A.6.
 
-A.8. Epoch-based Stake Update n_next (1-day epochs, linear)
+A.9. Discrete Stake Update n_next
 
-Let the epoch length be one day, and interpret annual rates linearly per day.
-There are approximately 365 epochs per year.
+We use epoch-based discrete updates. Let one epoch be EPOCH_LENGTH seconds,
+and let dt = EPOCH_LENGTH / (365 days) in years. For a given StakeLot with
+amount n:
 
-For a single epoch for a given StakeLot with amount n:
-
-- If VS == 0 or the post is below the economic activation threshold:
+- If VS == 0 or T_eff below threshold:
 
       n_next = n
 
 - Else:
 
-      daily_rate = r_user / 365
-      delta      = n * daily_rate
-      n_next     = max(0, n + delta)
-
-This results in linear compounding across epochs: each day adjusts the stake
-by a fraction of the annual rate, based on the current amount n.
+      delta = n * r_user * dt
+      n_next = max(0, n + delta)
 
 Key behaviors:
 
-- Early, deep stake on the largest posts (high f_post, high q_pos_i) gets
-  rates near R_max when aligned with VS and loses near R_max when misaligned.
-- Small, shallow posts or late-arriving stake get rates closer to R_min.
-- Peeling off from a large post into a small new post usually hurts the
-  effective rate, because f_post drops sharply even if queue position improves.
+- If sign > 0 (aligned with VS), and VS is high, and T_eff is large, and
+  mid is high relative to sMax, then the lot grows meaningfully over time.
+- If sign < 0 (opposed to VS) under the same conditions, the lot shrinks,
+  potentially to zero (total economic loss).
+- Moving from a large, old post into a tiny new post loses the advantage of
+  high P and high sMax-weighted position, reducing achievable returns.
 
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 Appendix B. Behavioral Notes (Informative)
--------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 B.1. Neutral Verity Score (VS = 0)
 
-When VS is exactly zero, the interpretation is "market unclear". The economic
-model sets:
+When VS is exactly zero, the market is "unclear". The economic model treats
+lots as neutral for that epoch:
 
 - r_user = 0
 - n_next = n
 
-for that period. This avoids punishing or rewarding either side when the
-truth pressure is neutral.
+No one wins or loses while VS is neutral.
 
 B.2. Incentive Against Post Fracturing
 
-Because the post size factor f_post depends on S_post / S_max, small fractured
-posts have lower f_post values and thus yield lower effective rates, even for
-early stakers.
+Because the post reward factor P depends on T_eff / S_total, small fractured
+posts have lower P values and yield lower effective rates, even for early
+stakers. It is generally better economically to stake into shared canonical
+posts than to create many near-duplicate posts with low T_eff.
 
-Roughly:
+B.3. Incentive To Link Instead Of Clone
 
-- Everyone staking into one big canonical post will enjoy higher f_post and
-  thus be closer to R_max (up to the side alignment and queue position
-  adjustments).
-- The last staker on a large, high-f_post post will generally not be able to
-  improve their situation by peeling off into a new tiny post, because the
-  drop in f_post outweighs any positional advantage.
+If a player wants to support or challenge an existing claim, they have two
+main options:
 
-B.3. Incentive To Challenge Instead Of Clone
+- Stake directly on the post (support or challenge), or
+- Create a link post plus a LinkGraph relation with ctxStake.
 
-If a player disagrees with an existing claim, they can:
+Because link-based ctxStake contributes to the effective totals of the target
+post via Lp and Lm, there is real economic gain to building a coherent web of
+evidence instead of proliferating contradictory or duplicate standalone posts.
 
-- Challenge the existing post (side = challenge), gaining access to the same
-  post-level f_post (and thus potentially high rates if they are correct), or
+B.4. No Recursive Propagation On-Chain
 
-- Create a new contradictory post with a very small S_post and thus small
-  f_post, which is less attractive economically.
+Link influence is local: each relation affects only its direct target via
+ctxStake. There is no on-chain recursion over the DAG. This keeps gas usage
+bounded and prevents denial-of-service via long or adversarial chains of links.
 
-This structure encourages players to concentrate stake on a shared set of
-canonical posts and use the challenge side rather than proliferating duplicate
-or conflicting posts to farm "first position".
+Global, recursive truth propagation (for example, multi-hop confidence scores
+or PageRank-style measures) is left to the off-chain application layer, which
+can re-derive the full DAG and expose richer scores without gas limits.
 
-B.4. Implementation Flexibility
+B.5. Implementation Flexibility
 
 The actual Solidity implementation may:
 
 - Apply rate updates on stake/withdraw operations, on a per-post update call,
   or via a keeper pattern.
-- Approximate epoch timing based on block timestamps.
-- Choose concrete values for R_min, R_max via governance.
+- Approximate dt based on block timestamps and a chosen time granularity.
+- Choose concrete values for R_min, R_max, P_min, P_max via governance.
 - Expose additional view functions for analytics (for example, per-lot
-  effective rate estimates, f_post, and q_pos_i).
+  effective rate estimates or per-post effective A_eff and D_eff).
 
 As long as the semantics remain consistent with this appendix and the ABI in
 the main body, implementations are considered conformant.
