@@ -321,8 +321,8 @@ This produces symmetric gains and losses:
 
 ### 3.7 Launch Parameters (governance-changeable)
 
-- **Max staking rate:** 10× US 10-Year Treasury  
-- **Min staking rate:** 0.1× US 10-Year Treasury  
+- **Max staking rate:** 100% APR  
+- **Min staking rate:** 1% APR  
 - **K formula:** $`K = S / A`$ (with $`A`$ = active Posts)  
 
 ---
