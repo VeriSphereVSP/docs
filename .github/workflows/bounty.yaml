@@ -35,13 +35,13 @@ jobs:
           pip install -r .verisphere/scripts/requirements.txt
 
       #####################################################
-      # Extract Metadata (SAFE ACROSS ALL GITHUB EVENTS)
+      # Extract metadata safely for ALL event types
       #####################################################
       - name: Extract bounty metadata
         id: parse
         shell: bash
         run: |
-          # Title
+          # Title detection
           if [[ -n "${{ github.event.issue.title }}" ]]; then
             TITLE="${{ github.event.issue.title }}"
           elif [[ -n "${{ github.event.pull_request.title }}" ]]; then
@@ -50,7 +50,7 @@ jobs:
             TITLE="(unknown title)"
           fi
 
-          # URL
+          # URL detection
           if [[ -n "${{ github.event.issue.html_url }}" ]]; then
             URL="${{ github.event.issue.html_url }}"
           elif [[ -n "${{ github.event.pull_request.html_url }}" ]]; then
@@ -59,7 +59,7 @@ jobs:
             URL="https://github.com/${{ github.repository }}"
           fi
 
-          # Labels (normalized)
+          # Get labels in JSON array form (safe fallback = empty array)
           LABELS_JSON='${{ toJson(github.event.issue.labels || github.event.pull_request.labels || []) }}'
 
           echo "title=$TITLE" >> $GITHUB_OUTPUT
@@ -70,17 +70,49 @@ jobs:
           echo "repo=${{ github.repository }}" >> $GITHUB_OUTPUT
 
       #####################################################
-      # Only Append to Sheet if "bounty" label is present
+      # Debug output: see exactly what we got from GitHub
+      #####################################################
+      - name: Debug: Show Parsed Metadata
+        run: |
+          echo "---- DEBUG METADATA ----"
+          echo "TITLE:  ${{ steps.parse.outputs.title }}"
+          echo "URL:    ${{ steps.parse.outputs.url }}"
+          echo "LABELS: ${{ steps.parse.outputs.labels }}"
+          echo "ACTOR:  ${{ steps.parse.outputs.actor }}"
+          echo "STATUS: ${{ steps.parse.outputs.status }}"
+          echo "REPO:   ${{ steps.parse.outputs.repo }}"
+          echo "-------------------------"
+
+      #####################################################
+      # Debug label parsing + show condition result
+      #####################################################
+      - name: Debug: Evaluate bounty label condition
+        id: check
+        run: |
+          LABELS='${{ steps.parse.outputs.labels }}'
+          echo "LABELS RAW: $LABELS"
+          echo "----- NAMES ----"
+          echo "${LABELS}" | jq -r '.[].name'
+          echo "----------------"
+
+          BOUNTY_FOUND=$(echo "${LABELS}" | jq -r '[.[].name | select(.=="bounty")] | length')
+
+          echo "BOUNTY_FOUND_COUNT=$BOUNTY_FOUND" >> $GITHUB_OUTPUT
+          echo "Bounty label count: $BOUNTY_FOUND"
+
+      #####################################################
+      # Append to Google Sheet ONLY if bounty label exists
       #####################################################
       - name: Append to Google Sheet
-        if: contains(fromJson(steps.parse.outputs.labels).* .name, 'bounty')
+        if: steps.check.outputs.BOUNTY_FOUND_COUNT != '0'
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
         run: |
+          echo "Appending bounty row to Google Sheet..."
           python .verisphere/scripts/update_sheet.py \
             --sheet "$SHEET_ID" \
             --title "${{ steps.parse.outputs.title }}" \
-            --labels "${{ steps.parse.outputs.labels }}" \
+            --labels '${{ steps.parse.outputs.labels }}' \
             --actor "${{ steps.parse.outputs.actor }}" \
             --status "${{ steps.parse.outputs.status }}" \
             --repo "${{ steps.parse.outputs.repo }}" \
