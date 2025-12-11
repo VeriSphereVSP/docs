@@ -17,12 +17,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Write GCP service account key.json
+      - name: Write GCP key.json
         env:
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
         run: |
@@ -31,89 +31,55 @@ jobs:
 
       - name: Install Python deps
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r .verisphere/scripts/requirements.txt
 
-      #####################################################
-      # Extract metadata safely for ALL event types
-      #####################################################
-      - name: Extract bounty metadata
-        id: parse
-        shell: bash
+      ###########################################################
+      # Fetch REAL labels from GitHub API to fix missing labels
+      ###########################################################
+      - name: Fetch issue metadata
+        id: fetch
         run: |
-          # Title detection
-          if [[ -n "${{ github.event.issue.title }}" ]]; then
-            TITLE="${{ github.event.issue.title }}"
-          elif [[ -n "${{ github.event.pull_request.title }}" ]]; then
-            TITLE="${{ github.event.pull_request.title }}"
-          else
-            TITLE="(unknown title)"
+          ISSUE_NUMBER=${{ github.event.issue.number }}
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "labels=[]" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
-          # URL detection
-          if [[ -n "${{ github.event.issue.html_url }}" ]]; then
-            URL="${{ github.event.issue.html_url }}"
-          elif [[ -n "${{ github.event.pull_request.html_url }}" ]]; then
-            URL="${{ github.event.pull_request.html_url }}"
-          else
-            URL="https://github.com/${{ github.repository }}"
-          fi
+          # Fetch full issue data
+          curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER \
+            > issue.json
 
-          # Get labels in JSON array form (safe fallback = empty array)
-          LABELS_JSON='${{ toJson(github.event.issue.labels || github.event.pull_request.labels || []) }}'
+          # Extract labels as JSON
+          LABELS=$(jq '.labels' issue.json)
+          echo "labels=$LABELS" >> $GITHUB_OUTPUT
+
+          # Extract title & URL safely
+          TITLE=$(jq -r '.title' issue.json)
+          URL=$(jq -r '.html_url' issue.json)
 
           echo "title=$TITLE" >> $GITHUB_OUTPUT
           echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "labels=$LABELS_JSON" >> $GITHUB_OUTPUT
           echo "actor=${{ github.actor }}" >> $GITHUB_OUTPUT
-          echo "status=${{ github.event.action || 'manual' }}" >> $GITHUB_OUTPUT
+          echo "status=${{ github.event.action }}" >> $GITHUB_OUTPUT
           echo "repo=${{ github.repository }}" >> $GITHUB_OUTPUT
 
-      #####################################################
-      # Debug output: see exactly what we got from GitHub
-      #####################################################
-      - name: Debug: Show Parsed Metadata
-        run: |
-          echo "---- DEBUG METADATA ----"
-          echo "TITLE:  ${{ steps.parse.outputs.title }}"
-          echo "URL:    ${{ steps.parse.outputs.url }}"
-          echo "LABELS: ${{ steps.parse.outputs.labels }}"
-          echo "ACTOR:  ${{ steps.parse.outputs.actor }}"
-          echo "STATUS: ${{ steps.parse.outputs.status }}"
-          echo "REPO:   ${{ steps.parse.outputs.repo }}"
-          echo "-------------------------"
-
-      #####################################################
-      # Debug label parsing + show condition result
-      #####################################################
-      - name: Debug: Evaluate bounty label condition
-        id: check
-        run: |
-          LABELS='${{ steps.parse.outputs.labels }}'
-          echo "LABELS RAW: $LABELS"
-          echo "----- NAMES ----"
-          echo "${LABELS}" | jq -r '.[].name'
-          echo "----------------"
-
-          BOUNTY_FOUND=$(echo "${LABELS}" | jq -r '[.[].name | select(.=="bounty")] | length')
-
-          echo "BOUNTY_FOUND_COUNT=$BOUNTY_FOUND" >> $GITHUB_OUTPUT
-          echo "Bounty label count: $BOUNTY_FOUND"
-
-      #####################################################
-      # Append to Google Sheet ONLY if bounty label exists
-      #####################################################
+      ###########################################################
+      # Append only if bounty label exists
+      ###########################################################
       - name: Append to Google Sheet
-        if: steps.check.outputs.BOUNTY_FOUND_COUNT != '0'
+        if: contains(join(fromJson(steps.fetch.outputs.labels).* .name, ','), 'bounty')
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
         run: |
-          echo "Appending bounty row to Google Sheet..."
           python .verisphere/scripts/update_sheet.py \
             --sheet "$SHEET_ID" \
-            --title "${{ steps.parse.outputs.title }}" \
-            --labels '${{ steps.parse.outputs.labels }}' \
-            --actor "${{ steps.parse.outputs.actor }}" \
-            --status "${{ steps.parse.outputs.status }}" \
-            --repo "${{ steps.parse.outputs.repo }}" \
-            --url "${{ steps.parse.outputs.url }}"
+            --title "${{ steps.fetch.outputs.title }}" \
+            --labels "${{ steps.fetch.outputs.labels }}" \
+            --actor "${{ steps.fetch.outputs.actor }}" \
+            --status "${{ steps.fetch.outputs.status }}" \
+            --repo "${{ steps.fetch.outputs.repo }}" \
+            --url "${{ steps.fetch.outputs.url }}"
