@@ -1,39 +1,288 @@
 Title,Body,Labels
-Phase 1.1 – Core repo scaffolding,"Set up Foundry project structure for the core protocol. Establish formatting, linting, and directory conventions used by all contracts and tests.",core,infra
-Phase 1.2 – VSP token implementation,"Implement ERC-20 VSP token with mint and burn functions gated by Authority roles. Include full unit test coverage.",core,token
-Phase 1.3 – Authority role controller,"Implement Authority contract with owner-controlled minter and burner roles. Ensure proper access control and tests.",core,auth
-Phase 1.4 – Deployment scripts,"Create Foundry scripts for deploying VSPToken and Authority to Fuji and mainnet.",core,deployment
-Phase 2.1 – Post model and registry,"Implement PostRegistry with support for Claim and Link posts, including storage, creation, and getters.",core,registry
-Phase 2.2 – Claim creation flow,"Add claim creation logic, validation, and retrieval in PostRegistry, with tests.",core,claims
-Phase 2.3 – Link creation flow,"Implement creation of link posts connecting independent and dependent claims, including isChallenge flag.",core,links
-Phase 2.4 – Link graph storage,"Implement LinkGraph to store incoming and outgoing edges between claims with link metadata.",core,graph
-Phase 2.5 – Enforce acyclic claim graph,"Prevent creation of links that would introduce cycles in the claim dependency graph. Add revert logic and tests.",core,graph
-Phase 3.1 – Base verity score definition,"Define baseVS for claims and links as (support/(support+challenge))*2−1 with fixed-point scaling.",core,scoring
-Phase 3.2 – EffectiveVS formal specification,"Formally specify effectiveVS for claims, including recursive accumulation of upstream influence via links (Option A: positive IC influence only).",core,scoring,docs
-Phase 3.3 – EffectiveVS implementation,"Implement effectiveVS calculation in ScoreEngine using recursive DAG traversal and link stake discounting.",core,scoring
-Phase 3.4 – Protocol read-only views,"Implement ProtocolViews contract to expose claim summaries, edges, baseVS, and effectiveVS for off-chain consumers.",core,views
-Phase 3.5 – Scoring gas and safety review,"Audit ScoreEngine recursion depth, gas usage, and add defensive limits if necessary.",core,scoring
-Phase 4.1 – Stake engine core,"Implement StakeEngine staking and withdrawal logic with per-post support/challenge totals.",core,staking
-Phase 4.2 – Epoch settlement logic,"Implement epoch-based stake updates using effectiveVS, including neutrality at VS=0.",core,staking
-Phase 4.3 – Mint/burn settlement integration,"Integrate VSP minting for gains and burning for losses during epoch settlement via Authority-controlled calls.",core,staking,token
-Phase 4.4 – Invariant and fuzz testing,"Add invariant and fuzz tests for stake conservation, monotonicity, and edge cases across epochs.",core,testing
-Phase 4.5 – Core security review,"Review core contracts for access control, reentrancy, overflow, and logic errors. Apply fixes as needed.",core,security
-Phase 5.1 – Backend skeleton,"Create backend service skeleton including configuration, environment management, and database migrations.",backend
-Phase 5.2 – Chain indexer,"Implement indexer to ingest on-chain events (posts, links, stakes, settlements) into backend storage.",backend,indexer
-Phase 5.3 – Read API,"Expose read-only API endpoints for claims, links, scores, and stake totals.",backend,api
-Phase 5.4 – Transaction helpers,"Provide backend helpers for constructing stake, withdraw, claim, and link transactions.",backend,api
-Phase 5.5 – Backend security and rate limiting,"Add authentication, rate limiting, and abuse prevention to backend APIs.",backend,security
-Phase 6.1 – Frontend scaffold,"Create frontend application scaffold and build pipeline.",frontend
-Phase 6.2 – Claim browsing UI,"Implement UI for browsing claims, viewing effectiveVS, and inspecting stake breakdowns.",frontend,ui
-Phase 6.3 – Claim and link creation UI,"Implement UI flows for publishing claims and creating support/challenge links.",frontend,ui
-Phase 6.4 – Staking UI,"Implement UI for staking, withdrawing, and viewing epoch status.",frontend,ui
-Phase 6.5 – Graph visualization,"Add visualization for claim dependency graph with incoming/outgoing links.",frontend,ui
-Phase 7.1 – Testnet deployment,"Deploy full system to Fuji testnet and publish verified contract addresses.",deployment
-Phase 7.2 – Observability,"Add logging, metrics, and alerting for backend and indexer services.",backend,ops
-Phase 7.3 – Load testing,"Perform load testing on backend APIs and indexer throughput.",backend,ops
-Phase 7.4 – Disaster recovery planning,"Prepare backup, replay, and recovery procedures for production incidents.",ops
-Phase 8.1 – Beta rollout,"Conduct limited beta rollout with selected users and collect feedback.",product
-Phase 8.2 – Mainnet readiness review,"Final security, economic, and operational review prior to mainnet launch.",security,release
-Phase 8.3 – Mainnet deployment,"Deploy contracts and backend to mainnet and switch production endpoints.",deployment,release
-Phase 8.4 – Production monitoring,"Establish on-call rotation, alert tuning, and incident response process.",ops
-Phase 8.5 – Public launch,"Public launch announcement, documentation finalization, and support channels.",release
+9.2 - Mainnet Launch,"Task ID: 9.2
+Phase: 9
+Description: Deploy all smart contracts, backend services, and frontend UI to Avalanche C-Chain mainnet. Confirm treasury initialization, multisig ownership, and final contract verifications.
+Deliverables:
+- Mainnet deployment
+- Treasury + multisig verification
+- Public documentation
+Dependencies: 9.1
+Estimated Hours: 120
+Start Hour: 4201
+End Hour: 4320
+Bounty (VSP): 12000","bounty,phase:9,status:planned"
+
+9.1 - Production Hardening & Security Review,"Task ID: 9.1
+Phase: 9
+Description: Code freeze, audits, adversarial testing, infrastructure hardening, emergency playbooks.
+Deliverables:
+- Audit reports
+- Fixes + attestations
+- Incident response docs
+Dependencies: 8.1
+Estimated Hours: 240
+Start Hour: 3961
+End Hour: 4200
+Bounty (VSP): 36000","bounty,phase:9,status:planned"
+
+8.1 - Beta Launch,"Task ID: 8.1
+Phase: 8
+Description: Public beta on Avalanche testnet with real users and live staking.
+Deliverables:
+- Public beta deployment
+- Monitoring dashboards
+- Feedback intake
+Dependencies: 7.x
+Estimated Hours: 160
+Start Hour: 3801
+End Hour: 3960
+Bounty (VSP): 64000","bounty,phase:8,status:planned"
+
+7.2 - Governance Engine,"Task ID: 7.2
+Phase: 7
+Description: Proposal lifecycle, voting, quorum enforcement, and execution hooks.
+Deliverables:
+- GovernanceHub contract
+- Voting logic
+- Execution authority
+Dependencies: 7.1
+Estimated Hours: 220
+Start Hour: 3581
+End Hour: 3800
+Bounty (VSP): 132000","bounty,phase:7,status:planned"
+
+7.1 - Bounty System,"Task ID: 7.1
+Phase: 7
+Description: Treasury-controlled bounty issuance and payout via governance.
+Deliverables:
+- On-chain bounty payouts
+- Accounting + events
+Dependencies: 6.x
+Estimated Hours: 180
+Start Hour: 3401
+End Hour: 3580
+Bounty (VSP): 162000","bounty,phase:7,status:planned"
+
+6.2 - Anti-Spam & Economic Throttling,"Task ID: 6.2
+Phase: 6
+Description: Anti-spam mechanics using stake thresholds, rate limits, and posting friction.
+Deliverables:
+- Rate limiter
+- Stake-weighted permissions
+- Fee sink logic
+Dependencies: 6.1
+Estimated Hours: 220
+Start Hour: 3181
+End Hour: 3400
+Bounty (VSP): 308000","bounty,phase:6,status:planned"
+
+6.1 - Comprehensive Testing Suite,"Task ID: 6.1
+Phase: 6
+Description: Full automated testing across protocol, graph, economics, and governance.
+Deliverables:
+- 90%+ coverage
+- Fuzz/property tests
+- Static analysis
+Dependencies: 3.x, 4.x, 5.x
+Estimated Hours: 260
+Start Hour: 2921
+End Hour: 3180
+Bounty (VSP): 468000","bounty,phase:6,status:planned"
+
+5.2 - Prediction / Forecasting Views,"Task ID: 5.2
+Phase: 5
+Description: UI and data views for probabilistic interpretation of claims.
+Deliverables:
+- Forecast UI
+- VS history charts
+- Stake flow visualization
+Dependencies: 5.1
+Estimated Hours: 220
+Start Hour: 2701
+End Hour: 2920
+Bounty (VSP): 792000","bounty,phase:5,status:planned"
+
+5.1 - Encyclopedia Frontend,"Task ID: 5.1
+Phase: 5
+Description: User-facing encyclopedia UI with claims, links, and contextual evidence.
+Deliverables:
+- Claim pages
+- Evidence graph UI
+- Wallet integration
+Dependencies: 3.x, 4.x
+Estimated Hours: 420
+Start Hour: 2281
+End Hour: 2700
+Bounty (VSP): 1764000","bounty,phase:5,status:planned"
+
+4.2 - AI Claim Decomposition Engine,"Task ID: 4.2
+Phase: 4
+Description: LLM service that enforces atomic claims and decomposes compound assertions.
+Deliverables:
+- Decomposition model
+- Confidence scoring
+- API integration
+Dependencies: 4.1
+Estimated Hours: 280
+Start Hour: 2001
+End Hour: 2280
+Bounty (VSP): 1352000","bounty,phase:4,status:planned"
+
+4.1 - AI Semantic Duplication Detection,"Task ID: 4.1
+Phase: 4
+Description: Detect semantically equivalent claims to prevent duplication.
+Deliverables:
+- Embedding service
+- Similarity scoring
+- Rejection hints
+Dependencies: 3.4
+Estimated Hours: 220
+Start Hour: 1781
+End Hour: 2000
+Bounty (VSP): 1904000","bounty,phase:4,status:planned"
+
+3.5 - Economic Invariants & Attack Modeling,"Task ID: 3.5
+Phase: 3
+Description: Formal reasoning and adversarial testing of staking, links, effectiveVS, and epoch settlement dynamics.
+Deliverables:
+- Invariant specs
+- Attack simulations
+- Mitigation patches
+Dependencies: 3.4
+Estimated Hours: 200
+Start Hour: 1581
+End Hour: 1780
+Bounty (VSP): 1600000","bounty,phase:3,status:planned"
+
+3.4 - Protocol Aggregation & Read APIs,"Task ID: 3.4
+Phase: 3
+Description: Read-only aggregation views for claims, links, baseVS, effectiveVS, and stake totals.
+Deliverables:
+- ProtocolViews contract
+- Indexer-friendly getters
+- Gas profiling
+Dependencies: 3.3
+Estimated Hours: 180
+Start Hour: 1401
+End Hour: 1580
+Bounty (VSP): 2200000","bounty,phase:3,status:planned"
+
+3.3 - ScoreEngine / effectiveVS,"Task ID: 3.3
+Phase: 3
+Description: Implement effective Veracity Score (effectiveVS) using recursive DAG traversal and discounted link influence (Option A).
+Deliverables:
+- ScoreEngine.sol
+- baseVS and effectiveVS logic
+- Unit + property tests
+Dependencies: 3.2
+Estimated Hours: 200
+Start Hour: 1201
+End Hour: 1400
+Bounty (VSP): 2400000","bounty,phase:3,status:done"
+
+3.2 - LinkGraph Engine,"Task ID: 3.2
+Phase: 3
+Description: Implement support/challenge links between claims with DAG enforcement.
+Deliverables:
+- Solidity LinkGraph
+- Incoming/outgoing edge storage
+- Cycle detection
+- Unit tests
+Dependencies: 3.1
+Estimated Hours: 240
+Start Hour: 1391
+End Hour: 1630
+Bounty (VSP): 3362000","bounty,phase:3,status:done"
+
+3.1 - StakeEngine,"Task ID: 3.1
+Phase: 3
+Description: Implement support/challenge staking queues, positional weighting, and epoch settlement hooks.
+Deliverables:
+- StakeEngine.sol
+- Queue logic
+- Epoch update scaffolding
+- Unit tests
+Dependencies: 2.1, 2.3
+Estimated Hours: 240
+Start Hour: 1151
+End Hour: 1390
+Bounty (VSP): 3362000","bounty,phase:3,status:done"
+
+2.3 - Claim & Link Specification,"Task ID: 2.3
+Phase: 2
+Description: Formal specification of Post structure, claims, links, stake queues, VS definitions, and DAG constraints.
+Deliverables:
+- Claim schema
+- Link schema
+- Queue model
+- VS model
+Dependencies: 1.1
+Estimated Hours: 150
+Start Hour: 1001
+End Hour: 1150
+Bounty (VSP): 2540000","bounty,phase:2,status:done"
+
+2.2 - Deploy VSP to Fuji,"Task ID: 2.2
+Phase: 2
+Description: Compile and deploy VSP ERC20 to Avalanche Fuji testnet and verify contracts.
+Deliverables:
+- Verified token address
+- Deployment artifacts
+Dependencies: 2.1
+Estimated Hours: 120
+Start Hour: 881
+End Hour: 1000
+Bounty (VSP): 1941039","bounty,phase:2,status:done"
+
+2.1 - VSP Token Contract,"Task ID: 2.1
+Phase: 2
+Description: Implement VSP ERC20 with mint/burn and Authority integration.
+Deliverables:
+- Token contract
+- Unit tests
+- Deployment scripts
+Dependencies: 1.x
+Estimated Hours: 180
+Start Hour: 701
+End Hour: 880
+Bounty (VSP): 2794578","bounty,phase:2,status:done"
+
+1.3 - Set Up GitHub Organization,"Task ID: 1.3
+Phase: 1
+Description: Create organization, repos, permissions, protections, workflows, and initial structure.
+Deliverables:
+- GitHub org configured
+- Repos created
+Dependencies: 1.1
+Estimated Hours: 40
+Start Hour: 661
+End Hour: 700
+Bounty (VSP): 786293
+Notes: Completed","bounty,phase:1,status:done"
+
+1.2 - Secure Domain and Email,"Task ID: 1.2
+Phase: 1
+Description: Register domain and configure DNS and email.
+Deliverables:
+- Domain registered
+- Email configured
+Dependencies: 1.1
+Estimated Hours: 60
+Start Hour: 601
+End Hour: 660
+Bounty (VSP): 811000
+Notes: Completed","bounty,phase:1,status:done"
+
+1.1 - Define Goals and Roadmap,"Task ID: 1.1
+Phase: 1
+Description: Define mission, scope, roadmap, economics, and architecture.
+Deliverables:
+- Mission statement
+- MVP scope
+- Architecture outline
+Dependencies: None
+Estimated Hours: 600
+Start Hour: 1
+End Hour: 600
+Bounty (VSP): 23894925
+Notes: Completed","bounty,phase:1,status:done"
