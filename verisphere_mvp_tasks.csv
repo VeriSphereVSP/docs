@@ -10,11 +10,11 @@ Dependencies: 9.1
 Estimated Hours: 120
 Start Hour: 4201
 End Hour: 4320
-Bounty (VSP): 12000","bounty,phase:9,status:planned"
+Bounty (VSP): 65000","bounty,phase:9,status:planned"
 
 9.1 - Production Hardening & Security Review,"Task ID: 9.1
 Phase: 9
-Description: Code freeze, audits, adversarial testing, infrastructure hardening, emergency playbooks.
+Description: Code freeze, audits, adversarial testing, infra hardening, emergency playbooks.
 Deliverables:
 - Audit reports
 - Fixes + attestations
@@ -23,7 +23,7 @@ Dependencies: 8.1
 Estimated Hours: 240
 Start Hour: 3961
 End Hour: 4200
-Bounty (VSP): 36000","bounty,phase:9,status:planned"
+Bounty (VSP): 145000","bounty,phase:9,status:planned"
 
 8.1 - Beta Launch,"Task ID: 8.1
 Phase: 8
@@ -32,15 +32,15 @@ Deliverables:
 - Public beta deployment
 - Monitoring dashboards
 - Feedback intake
-Dependencies: 7.x
+Dependencies: 7.2
 Estimated Hours: 160
 Start Hour: 3801
 End Hour: 3960
-Bounty (VSP): 64000","bounty,phase:8,status:planned"
+Bounty (VSP): 220000","bounty,phase:8,status:planned"
 
 7.2 - Governance Engine,"Task ID: 7.2
 Phase: 7
-Description: Proposal lifecycle, voting, quorum enforcement, and execution hooks.
+Description: Proposal lifecycle, voting, quorum enforcement, execution hooks.
 Deliverables:
 - GovernanceHub contract
 - Voting logic
@@ -49,7 +49,7 @@ Dependencies: 7.1
 Estimated Hours: 220
 Start Hour: 3581
 End Hour: 3800
-Bounty (VSP): 132000","bounty,phase:7,status:planned"
+Bounty (VSP): 360000","bounty,phase:7,status:planned"
 
 7.1 - Bounty System,"Task ID: 7.1
 Phase: 7
@@ -57,11 +57,11 @@ Description: Treasury-controlled bounty issuance and payout via governance.
 Deliverables:
 - On-chain bounty payouts
 - Accounting + events
-Dependencies: 6.x
+Dependencies: 6.2
 Estimated Hours: 180
 Start Hour: 3401
 End Hour: 3580
-Bounty (VSP): 162000","bounty,phase:7,status:planned"
+Bounty (VSP): 520000","bounty,phase:7,status:planned"
 
 6.2 - Anti-Spam & Economic Throttling,"Task ID: 6.2
 Phase: 6
@@ -71,10 +71,10 @@ Deliverables:
 - Stake-weighted permissions
 - Fee sink logic
 Dependencies: 6.1
-Estimated Hours: 220
+Estimated Hours: 200
 Start Hour: 3181
 End Hour: 3400
-Bounty (VSP): 308000","bounty,phase:6,status:planned"
+Bounty (VSP): 740000","bounty,phase:6,status:planned"
 
 6.1 - Comprehensive Testing Suite,"Task ID: 6.1
 Phase: 6
@@ -83,11 +83,11 @@ Deliverables:
 - 90%+ coverage
 - Fuzz/property tests
 - Static analysis
-Dependencies: 3.x, 4.x, 5.x
-Estimated Hours: 260
+Dependencies: 3.5
+Estimated Hours: 220
 Start Hour: 2921
 End Hour: 3180
-Bounty (VSP): 468000","bounty,phase:6,status:planned"
+Bounty (VSP): 980000","bounty,phase:6,status:planned"
 
 5.2 - Prediction / Forecasting Views,"Task ID: 5.2
 Phase: 5
@@ -97,23 +97,23 @@ Deliverables:
 - VS history charts
 - Stake flow visualization
 Dependencies: 5.1
-Estimated Hours: 220
+Estimated Hours: 200
 Start Hour: 2701
 End Hour: 2920
-Bounty (VSP): 792000","bounty,phase:5,status:planned"
+Bounty (VSP): 1350000","bounty,phase:5,status:planned"
 
 5.1 - Encyclopedia Frontend,"Task ID: 5.1
 Phase: 5
-Description: User-facing encyclopedia UI with claims, links, and contextual evidence.
+Description: User-facing encyclopedia UI with claims, links, and context.
 Deliverables:
 - Claim pages
 - Evidence graph UI
 - Wallet integration
-Dependencies: 3.x, 4.x
-Estimated Hours: 420
+Dependencies: 3.4
+Estimated Hours: 380
 Start Hour: 2281
 End Hour: 2700
-Bounty (VSP): 1764000","bounty,phase:5,status:planned"
+Bounty (VSP): 2100000","bounty,phase:5,status:planned"
 
 4.2 - AI Claim Decomposition Engine,"Task ID: 4.2
 Phase: 4
@@ -123,10 +123,10 @@ Deliverables:
 - Confidence scoring
 - API integration
 Dependencies: 4.1
-Estimated Hours: 280
+Estimated Hours: 260
 Start Hour: 2001
 End Hour: 2280
-Bounty (VSP): 1352000","bounty,phase:4,status:planned"
+Bounty (VSP): 3200000","bounty,phase:4,status:planned"
 
 4.1 - AI Semantic Duplication Detection,"Task ID: 4.1
 Phase: 4
@@ -135,15 +135,15 @@ Deliverables:
 - Embedding service
 - Similarity scoring
 - Rejection hints
-Dependencies: 3.4
+Dependencies: 3.5
 Estimated Hours: 220
 Start Hour: 1781
 End Hour: 2000
-Bounty (VSP): 1904000","bounty,phase:4,status:planned"
+Bounty (VSP): 4100000","bounty,phase:4,status:planned"
 
 3.5 - Economic Invariants & Attack Modeling,"Task ID: 3.5
 Phase: 3
-Description: Formal reasoning and adversarial testing of staking, links, effectiveVS, and epoch settlement dynamics.
+Description: Formal reasoning and adversarial testing of staking, links, and VS dynamics.
 Deliverables:
 - Invariant specs
 - Attack simulations
@@ -152,137 +152,110 @@ Dependencies: 3.4
 Estimated Hours: 200
 Start Hour: 1581
 End Hour: 1780
-Bounty (VSP): 1600000","bounty,phase:3,status:planned"
+Bounty (VSP): 5200000","bounty,phase:3,status:done"
 
-3.4 - Protocol Aggregation & Read APIs,"Task ID: 3.4
+3.4 - Aggregation & Read APIs,"Task ID: 3.4
 Phase: 3
-Description: Read-only aggregation views for claims, links, baseVS, effectiveVS, and stake totals.
+Description: Efficient read-only aggregation views for claims, links, and VS.
 Deliverables:
-- ProtocolViews contract
-- Indexer-friendly getters
+- View functions
+- Indexer-friendly APIs
 - Gas profiling
 Dependencies: 3.3
 Estimated Hours: 180
 Start Hour: 1401
 End Hour: 1580
-Bounty (VSP): 2200000","bounty,phase:3,status:planned"
+Bounty (VSP): 6600000","bounty,phase:3,status:done"
 
-3.3 - ScoreEngine / effectiveVS,"Task ID: 3.3
+3.3 - Score / Influence Engine,"Task ID: 3.3
 Phase: 3
-Description: Implement effective Veracity Score (effectiveVS) using recursive DAG traversal and discounted link influence (Option A).
+Description: Compute effective Veracity Score (VS) using stake and contextual links.
 Deliverables:
-- ScoreEngine.sol
-- baseVS and effectiveVS logic
+- On-chain VS computation
+- Support/challenge semantics
+- Bounded influence logic
 - Unit + property tests
 Dependencies: 3.2
 Estimated Hours: 200
 Start Hour: 1201
 End Hour: 1400
-Bounty (VSP): 2400000","bounty,phase:3,status:done"
+Bounty (VSP): 8200000","bounty,phase:3,status:done"
 
-3.2 - LinkGraph Engine,"Task ID: 3.2
+3.2 - Implement LinkGraph Engine,"Task ID: 3.2
 Phase: 3
-Description: Implement support/challenge links between claims with DAG enforcement.
+Description: Implement support/challenge links, contextual influence, normalized VS weighting, anti-cycle detection.
 Deliverables:
 - Solidity LinkGraph
-- Incoming/outgoing edge storage
-- Cycle detection
+- Influence integration
+- DAG enforcement
 - Unit tests
 Dependencies: 3.1
 Estimated Hours: 240
-Start Hour: 1391
-End Hour: 1630
-Bounty (VSP): 3362000","bounty,phase:3,status:done"
+Start Hour: 961
+End Hour: 1200
+Bounty (VSP): 10400000","bounty,phase:3,status:done"
 
-3.1 - StakeEngine,"Task ID: 3.1
+3.1 - Implement Staking Engine,"Task ID: 3.1
 Phase: 3
-Description: Implement support/challenge staking queues, positional weighting, and epoch settlement hooks.
+Description: Implement support & challenge staking queues, positional weighting, yield/burn calc.
 Deliverables:
-- StakeEngine.sol
-- Queue logic
-- Epoch update scaffolding
+- Solidity StakeEngine
+- Queueing logic
+- Position logic
 - Unit tests
-Dependencies: 2.1, 2.3
-Estimated Hours: 240
-Start Hour: 1151
-End Hour: 1390
-Bounty (VSP): 3362000","bounty,phase:3,status:done"
+Dependencies: 2.3
+Estimated Hours: 260
+Start Hour: 701
+End Hour: 960
+Bounty (VSP): 12800000","bounty,phase:3,status:done"
 
-2.3 - Claim & Link Specification,"Task ID: 2.3
+2.3 - Define Claim Object Specification,"Task ID: 2.3
 Phase: 2
-Description: Formal specification of Post structure, claims, links, stake queues, VS definitions, and DAG constraints.
+Description: Formal definition of Post, Link, Stake, VS, and graph semantics.
 Deliverables:
 - Claim schema
 - Link schema
-- Queue model
 - VS model
 Dependencies: 1.1
 Estimated Hours: 150
-Start Hour: 1001
-End Hour: 1150
-Bounty (VSP): 2540000","bounty,phase:2,status:done"
+Start Hour: 551
+End Hour: 700
+Bounty (VSP): 16500000","bounty,phase:2,status:done"
 
-2.2 - Deploy VSP to Fuji,"Task ID: 2.2
+2.2 - Deploy VSP on Avalanche Testnet,"Task ID: 2.2
 Phase: 2
-Description: Compile and deploy VSP ERC20 to Avalanche Fuji testnet and verify contracts.
+Description: Compile & deploy VSP ERC20 to Avalanche Fuji testnet.
 Deliverables:
-- Verified token address
-- Deployment artifacts
+- Verified deployment
+- Owner keys secured
 Dependencies: 2.1
 Estimated Hours: 120
-Start Hour: 881
-End Hour: 1000
-Bounty (VSP): 1941039","bounty,phase:2,status:done"
+Start Hour: 431
+End Hour: 550
+Bounty (VSP): 19500000","bounty,phase:2,status:done"
 
 2.1 - VSP Token Contract,"Task ID: 2.1
 Phase: 2
-Description: Implement VSP ERC20 with mint/burn and Authority integration.
+Description: Implement VSP ERC20 with mint/burn and authority control.
 Deliverables:
-- Token contract
-- Unit tests
+- Solidity token
+- Tests
 - Deployment scripts
-Dependencies: 1.x
+Dependencies: 1.1
 Estimated Hours: 180
-Start Hour: 701
-End Hour: 880
-Bounty (VSP): 2794578","bounty,phase:2,status:done"
-
-1.3 - Set Up GitHub Organization,"Task ID: 1.3
-Phase: 1
-Description: Create organization, repos, permissions, protections, workflows, and initial structure.
-Deliverables:
-- GitHub org configured
-- Repos created
-Dependencies: 1.1
-Estimated Hours: 40
-Start Hour: 661
-End Hour: 700
-Bounty (VSP): 786293
-Notes: Completed","bounty,phase:1,status:done"
-
-1.2 - Secure Domain and Email,"Task ID: 1.2
-Phase: 1
-Description: Register domain and configure DNS and email.
-Deliverables:
-- Domain registered
-- Email configured
-Dependencies: 1.1
-Estimated Hours: 60
-Start Hour: 601
-End Hour: 660
-Bounty (VSP): 811000
-Notes: Completed","bounty,phase:1,status:done"
+Start Hour: 251
+End Hour: 430
+Bounty (VSP): 23000000","bounty,phase:2,status:done"
 
 1.1 - Define Goals and Roadmap,"Task ID: 1.1
 Phase: 1
-Description: Define mission, scope, roadmap, economics, and architecture.
+Description: Define the mission, scope, economics, and architecture of VeriSphere.
 Deliverables:
-- Mission statement
-- MVP scope
-- Architecture outline
+- Mission
+- Architecture
+- Economics
 Dependencies: None
-Estimated Hours: 600
+Estimated Hours: 250
 Start Hour: 1
-End Hour: 600
-Bounty (VSP): 23894925
-Notes: Completed","bounty,phase:1,status:done"
+End Hour: 250
+Bounty (VSP): 25000000","bounty,phase:1,status:done"
