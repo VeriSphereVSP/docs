@@ -141,6 +141,21 @@ Start Hour: 1781
 End Hour: 2000
 Bounty (VSP): 4100000","bounty,phase:4,status:planned"
 
+3.6 - Off-chain Read Model & Indexing Spec,"Task ID: 3.6
+Phase: 3
+Description: Deterministic off-chain read model and indexing specification for VeriSphere.
+Defines how indexers, backends, and UIs derive claims, links, stake, and effectiveVS from on-chain data.
+Deliverables:
+- Event → state derivation spec
+- Canonical graph traversal rules
+- effectiveVS off-chain computation spec
+- Indexer schemas & query patterns
+Dependencies: 3.5
+Estimated Hours: 160
+Start Hour: 1621
+End Hour: 1780
+Bounty (VSP): 3568000","bounty,phase:3,status:planned"
+
 3.5 - Economic Invariants & Attack Modeling,"Task ID: 3.5
 Phase: 3
 Description: Formal reasoning and adversarial testing of staking, links, and VS dynamics.
