@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 create_issues_from_csv.py
 
@@ -15,6 +16,7 @@ import csv
 import sys
 import time
 import requests
+from transformers import BertTokenizer, BertModel
 
 # ----------------------------------------------------------
 # CONFIG
@@ -31,6 +33,23 @@ HEADERS = {
     "Accept": "application/vnd.github+json",
 }
 
+# Embedding service
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertModel.from_pretrained('bert-base-uncased')
+
+def get_embedding(text):
+    inputs = tokenizer(text, return_tensors='pt', truncation=True, padding=True)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
+    return embeddings
+
+def cosine_similarity(embedding1, embedding2):
+    dot_product = np.dot(embedding1, embedding2)
+    norm1 = np.linalg.norm(embedding1)
+    norm2 = np.linalg.norm(embedding2)
+    similarity = dot_product / (norm1 * norm2)
+    return similarity
 
 # ----------------------------------------------------------
 # UTIL — Check if the issue already exists
@@ -83,27 +102,45 @@ def main():
     with f:
         reader = csv.DictReader(f)
 
+        embeddings = {}
         for row in reader:
             title = (row.get("Title") or "").strip()
             body = (row.get("Body") or "").strip()
-            labels_raw = (row.get("Labels") or "").split(",")
 
             if not title:
-                print("⚠️ Skipping row with empty title")
+                print("⚠️ Skipping row with no Title")
                 continue
 
-            # Normalize labels
-            labels = [l.strip() for l in labels_raw if l.strip()]
-            if "bounty" not in [l.lower() for l in labels]:
-                labels.append("bounty")
-
-            print(f"\n🛠 Preparing issue: {title}")
-
-            # Skip duplicates
+            # Check if the issue already exists
             if github_issue_exists(title):
+                print(f"Skipping duplicate issue: {title}")
                 continue
 
-            # Create issue
+            # Generate embeddings for existing issues (assuming they are in a separate CSV)
+            if not embeddings:
+                with open("existing_issues.csv", newline="", encoding="utf-8") as ef:
+                    e_reader = csv.DictReader(ef)
+                    for e_row in e_reader:
+                        e_title = (e_row.get("Title") or "").strip()
+                        e_body = (e_row.get("Body") or "").strip()
+                        if e_title and e_body:
+                            embeddings[e_title] = get_embedding(e_body)
+
+            # Check similarity with existing issues
+            max_similarity = 0.8
+            for e_title, e_embedding in embeddings.items():
+                new_embedding = get_embedding(body)
+                similarity = cosine_similarity(new_embedding, e_embedding)
+                if similarity > max_similarity:
+                    print(f"Skipping potential duplicate issue: {title} (similarity: {similarity})")
+                    continue
+
+            # Force labeled event to update Google Sheet
+            force_labeled_event(1, labels_raw)  # Assuming issue number is 1 for demonstration
+
+
+if __name__ == "__main__":
+    main()
             payload = {"title": title, "body": body, "labels": labels}
             resp = requests.post(ISSUES_API, headers=HEADERS, json=payload)
 
