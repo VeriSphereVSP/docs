@@ -33,7 +33,8 @@ Layers:
    - Authority
    - PostRegistry
    - StakeEngine
-   - (Future) LinkGraph
+   - LinkGraph
+   - ScoreEngine
 
 2. Application layer (off-chain)
    - API gateway
