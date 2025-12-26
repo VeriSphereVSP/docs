@@ -1,4 +1,4 @@
-# Task 4.1 — AI Semantic Duplication Detection (Spec)
+# AI Semantic Duplication Detection (Spec)
 
 ## Goal
 
