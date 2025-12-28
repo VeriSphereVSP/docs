@@ -344,6 +344,17 @@ $`VS = (2 \times (A / T) - 1) \times 100`$
 Clamped to **−100 to +100**.  
 Neutral until total stake ≥ posting fee.
 
+### Effective VS Boundaries
+
+Effective Verity Score is always clamped to the range [-100, +100].
+
+Recursive propagation:
+- Preserves sign
+- Conserves total influence mass
+- Terminates safely due to acyclic graph constraints
+
+This prevents runaway amplification while still allowing deep evidence chains to matter economically.
+
 ---
 
 ## 5. Evidence Links Between Claims
@@ -361,23 +372,100 @@ Let:
 - Stake on relation inside this context = $`R_{ctx}`$  
 - Independent stake on $`S`$ = $`S_{total}`$  
 
-### 5.2 Influence Calculation
+### 5.2 Influence Calculation (Revised)
 
-Normalize S Verity Score to [0,1]:
+Evidence links do not simply add raw stake to a dependent claim.  
+Instead, influence is **economically mediated** by:
 
-$`nVS(S) = (BaseVS(S) + 100) / 200`$
+1. The truth strength of the independent claim (IC)
+2. The economic commitment on the link itself
+3. The total economic mass of the IC
+4. The number and strength of competing outgoing links from the IC
 
-Contribution to A:
+This ensures that:
+- Foundational claims are economically protected
+- Influence cannot be duplicated infinitely
+- Players are incentivized to defend upstream postulates
+- Flat, disconnected claim graphs are disfavored
 
-- **Support:** adds $`nVS(S) \times R_{ctx}`$ to effective support on A  
-- **Challenge:** adds $`nVS(S) \times R_{ctx}`$ to effective challenge on A  
+Let:
 
-Total “effective” support and challenge for A:
+- `IC` = Independent Claim  
+- `DC` = Dependent Claim  
+- `L` = a specific link from IC → DC  
 
-- $`A_{support} += nVS(S) \times R_{ctx}`$ (for support links)  
-- $`A_{challenge} += nVS(S) \times R_{ctx}`$ (for challenge links)  
+Definitions:
+
+- `VS(IC)` = effective Verity Score of IC, in range [-100, +100]  
+- `VS(L)` = Verity Score of the link post itself, in range [-100, +100]  
+- `T(IC)` = total stake on IC (support + challenge)  
+- `T(L)` = total stake on link L  
+- `ΣT(L_IC)` = sum of total stake over **all outgoing links** from IC  
+
+A link contributes influence **only if**:
+
+- IC has total stake ≥ posting fee  
+- DC has total stake ≥ posting fee  
+- The link itself has total stake ≥ posting fee  
+
+Otherwise, the link contributes zero influence.
 
 Circular references are prohibited.
+
+Influence propagation is bounded, sign-preserving, and economically conserved.
+No claim can amplify downstream influence beyond its own truth-weighted stake.
+
+### 5.3 Link-Weighted IC Mass Distribution
+
+Each claim possesses a finite amount of **economic influence mass**, derived from its own stake and truth strength.  
+This mass is **not duplicated** across links — it is **distributed** among them.
+
+#### Step 1: Compute IC Economic Mass
+
+Define the *economic mass* of an independent claim:
+
+$`M(IC) = VS(IC) × T(IC)`$
+
+Where:
+- `VS(IC)` is normalized to the range [-1, +1]
+- `T(IC)` is the total stake on IC
+
+This represents how much *truth-weighted capital* the claim carries.
+
+#### Step 2: Compute IC Distribution Unit
+
+Let:
+
+$`U(IC) = M(IC) / ΣT(L_IC)`$
+
+Where:
+- `ΣT(L_IC)` is the sum of total stake across **all outgoing links** from IC
+
+This defines the **unit of distributable influence per unit of link stake**.
+
+> Intuition:  
+> The more links compete to use an IC as evidence, the thinner its influence is spread — unless players reinforce specific links economically.
+
+#### Step 3: Compute Link Contribution to DC
+
+For a given link `L` from IC → DC:
+
+$`Contribution(L → DC) = VS(L) × T(L) × U(IC)`$
+
+Where:
+- `VS(L)` reflects support or challenge polarity
+- Challenge links invert sign automatically
+
+This value is added to the **effective Verity Score accumulator** of the dependent claim.
+
+#### Properties
+
+This mechanism guarantees:
+
+- **Conservation of influence** — IC influence cannot be multiplied
+- **Defense incentive** — players must protect upstream claims
+- **Selective reinforcement** — strong links matter more than weak ones
+- **Resistance to spam linking** — low-stake links dilute themselves
 
 ---
 
