@@ -475,8 +475,7 @@ This mechanism guarantees:
 | Property | Description |
 |---------|-------------|
 | Supply | Elastic: minted for correct stakes, burned for wrong stakes |
-| Initial peg | $`1 \text{ VSP} = \$1`$ at launch |
-| Posting fee | Pegged to $`1/4000`$ oz of gold via oracle |
+| Posting fee | in VSP, pegged to $1 worth of gold at launch via oracle |
 | Reserve mechanics | None — market-driven value |
 | Treasury | For bounties & bootstrap, transparent on-chain (Avalanche) |
 
