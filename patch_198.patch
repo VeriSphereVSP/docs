@@ -1,0 +1,9 @@
+--- a/VeriSphereVSP/docs/somefile.md
++++ b/VeriSphereVSP/docs/somefile.md
+@@ -1,5 +1,5 @@
+ # Documentation Title
+ 
+-This is an outdated section that needs to be fixed.
++This is the corrected section with proper information.
+ 
+ ## Subsection
