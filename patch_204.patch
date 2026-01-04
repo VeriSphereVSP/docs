@@ -1,0 +1,10 @@
+--- a/VeriSphereVSP/docs/README.md
++++ b/VeriSphereVSP/docs/README.md
+@@ -10,7 +10,7 @@ Getting Started
+   2. Install dependencies.
+   3. Run the application.
+
+-Configuration options can be found in `config.json`.
++The latest configuration options are detailed in our [Configuration Guide](docs/config-guide.md).
+
+ ## Contributing
