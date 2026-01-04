@@ -1,0 +1,11 @@
+--- a/VeriSphereVSP/docs/file.md
++++ b/VeriSphereVSP/docs/file.md
+@@ -10,7 +10,7 @@
+ 
+ ## Known Issues
+ 
+-### Issue #199: Incorrect Version Number in Documentation
++### Issue #199: Fixed Version Number in Documentation
+ 
+-The documentation incorrectly stated the version as "1.0". This has been corrected to "2.0".
++The documentation now correctly states the version as "2.0" instead of "1.0".
