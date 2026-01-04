@@ -1,0 +1,10 @@
+--- a/VeriSphereVSP/docs/enumerations.md
++++ b/VeriSphereVSP/docs/enumerations.md
+@@ -10,6 +10,7 @@ namespace VeriSphereVSP
+  * `kVS_MF_Invalid` - Invalid or uninitialized value.
+  * `kVS_MF_Success` - Operation completed successfully.
+  * `kVS_MF_Error` - General error occurred during operation.
++ * `kVS_MF_Warning` - Non-fatal issue detected, but operation continues.
+ 
+ ### Usage Examples
+ Here's how you can use these enums in your code:
