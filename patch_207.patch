@@ -1,0 +1,10 @@
+--- a/VeriSphereVSP/docs/index.md
++++ b/VeriSphereVSP/docs/index.md
+@@ -10,7 +10,7 @@ VeriSphere VSP is designed to simplify and enhance your data verification workflo
+ 
+ ### Key Features
+ 
+-Real-time data validation: 
++Real-time data validation:
+ 
+ Ensure that your data meets predefined quality standards as it streams in. With real-time validation, you can catch issues early and prevent them from cascading into larger problems.
