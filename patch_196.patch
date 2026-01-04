@@ -1,0 +1,10 @@
+--- a/VeriSphereVSP/docs/somefile.md
++++ b/VeriSphereVSP/docs/somefile.md
+@@ -10,7 +10,7 @@
+ ### Known Issues
+ 
+-As of version 2.3.4, there are some known issues:
++As of the latest release, there are some known issues:
+ 
+ * **Issue #196**: Incorrect handling of edge cases in data processing.
+     This affects certain configurations and is being addressed.
