@@ -1,0 +1,10 @@
+--- a/VeriSphereVSP/docs/conf.py
++++ b/VeriSphereVSP/docs/conf.py
+@@ -23,7 +23,7 @@ import sphinx_rtd_theme
+ 
+ # -- Project information -----------------------------------------------------
+ 
+-project = 'VeriSphere VSP'
++project = 'VeriSphereVSP'
+ copyright = '2023, Your Name'
+ author = 'Your Name'
