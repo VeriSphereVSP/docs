@@ -1,0 +1,11 @@
+diff --git a/VeriSphereVSP/docs/somefile.md b/VeriSphereVSP/docs/somefile.md
+index abcdef1..1234567 100644
+--- a/VeriSphereVSP/docs/somefile.md
++++ b/VeriSphereVSP/docs/somefile.md
+@@ -1,5 +1,5 @@
+ # Overview
+ 
+-This section provides an overview of the VeriSphere VSP system.
++This section provides an updated overview of the VeriSphere VSP system.
+ 
+ ## System Architecture
