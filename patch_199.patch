@@ -1,0 +1,43 @@
+--- a/doc/verisphervsp.rst
++++ b/doc/verisphervsp.rst
+@@ -1,23 +1,20 @@
+ .. VSP documentation master file, created by
+-   sphinx-quickstart on Tue Jan 16 09:57:34 2024.
++   sphinx-quickstart on Fri Feb 16 09:57:34 2024.
+    You can adapt this file completely to your liking, but it should at least
+    contain the root `toctree` directive.
+ 
+-Welcome to VSP's documentation!
++Welcome to VeriSphereVSP's documentation!
+ ========================================
+-
+-.. note:: This is the documentation for the **VSP** library. If you are looking
+-          for information about the **VeriSphere** platform, please refer to
+-          `its official documentation <https://verispheredocs.readthedocs.io>`_.
++This is the documentation for the **VeriSphereVSP** library. For information about the **VeriSphere** platform, visit its official documentation at https://verispheredocs.readthedocs.io.
+ 
+-Contents:
++.. toctree::
++   :maxdepth: 2
++   :caption: Contents:
+ 
+-
+-.. toctree::
+-   :maxdepth: 1
++Getting Started
++===============
++
++Quick Start Guide
++-----------------
+ 
+    install
+    getting_started
+ 
+@@ -25,4 +22,3 @@
+ .. Indices and tables
+ .. ==================
+ ..
+-   genindex
+-   modindex
+-   search
++   :maxdepth: 2
