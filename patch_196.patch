@@ -1,0 +1,17 @@
+--- VeriSphereVSP/docs/Installation.md
++++ VeriSphereVSP/docs/Installation.md
+@@ -1,6 +1,8 @@
+ # Installation Guide
+ 
+ ## Prerequisites
++### Required Software
++* Java JDK 1.8 or higher
+ * Python 3.7 or higher
+ * Node.js 14.x or higher
+ 
+@@ -9,5 +11,5 @@
+ 
+ ## Steps
+-1. Clone the repository: `git clone https://github.com/your/repo.git`
++1. Clone the repository: `git clone https://github.com/VeriSphereVSP/VeriSphereVSP.git`
+ 2. Navigate to the project directory.
