@@ -1,0 +1,12 @@
+--- a/VeriSphereVSP/docs/README.md
++++ b/VeriSphereVSP/docs/README.md
+@@ -10,7 +10,7 @@ VeriSphere VSP (Virtual Sphere Protocol) is an advanced protocol designed for se
+ 
+ ## Table of Contents
+-  * [Getting Started](#getting-started)
+-  * [Features](#features)
++  * [Getting Started](./docs/getting-started.md)
++  * [Features](./docs/features.md)
+   * [Contributing](./CONTRIBUTING.md)
+ 
+ ## Getting Started
