@@ -1,0 +1,8 @@
+--- a/VeriSphereVSP/docs/somefile.md
++++ b/VeriSphereVSP/docs/somefile.md
+@@ -1,5 +1,6 @@
+ # Overview
+ 
++This document provides an overview of VeriSphereVSP features and usage.
+ 
+ ## Features
