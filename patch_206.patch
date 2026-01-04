@@ -1,0 +1,19 @@
+--- a/VeriSphereVSP/docs/task_206.md
++++ b/VeriSphereVSP/docs/task_206.md
+@@ -1,4 +1,5 @@
+-# Task 206: Bug Fix/Refactor
++# Task 206: Bug Fix and Refactoring
+ 
+ This task involves fixing a critical bug in the user authentication module and refactoring the logging system for better maintainability.
+ 
+@@ -7,8 +8,9 @@ The following steps need to be completed:
+ 1. **Bug Fix**: 
+    - Identify the root cause of the null pointer exception occurring during user login.
+    - Implement a fix by adding proper null checks in the `UserManager` class.
++   - Add comprehensive unit tests to cover the fixed scenario.
+ 
+-2. **Refactoring**:
++2. **Refactor Logging System**:
+    - Replace the current logging implementation with a more modular approach using dependency injection.
+    - Create separate logger classes for different components (e.g., `AuthLogger`, `TransactionLogger`).
+    - Update all relevant classes to use the new logging system, ensuring consistent log formats and improved debugging capabilities.
