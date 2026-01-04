@@ -1,0 +1,110 @@
+--- VeriSphereVSP/docs/README.md
++++ VeriSphereVSP/docs/README.md
+@@ -10,7 +10,7 @@
+ ## Installation
+ 
+ To install VeriSphereVSP, follow these steps:
+-1. Clone the repository: `git clone https://github.com/yourusername/VeriSphereVSP.git`
++1. Clone the repository: `git clone https://github.com/officialrepo/VeriSphereVSP.git`
+ 2. Navigate to the project directory: `cd VeriSphereVSP`
+ 3. Install dependencies: `pip install -r requirements.txt`
+ 
+@@ -20,7 +20,7 @@
+ ## Usage
+ 
+ Once installed, you can start using VeriSphereVSP by running:
+-`python main.py --config your_config_file.json`
++`python main.py --config config/default.json`
+ 
+ For more details on configuration options, refer to the [Configuration Guide](docs/config.md).
+ 
+@@ -30,7 +30,7 @@
+ ## Contributing
+ 
+ We welcome contributions! If you'd like to contribute to VeriSphereVSP, please follow these steps:
+-1. Fork the repository and create a new branch for your feature or bug fix.
++1. Fork the repository from [official repo](https://github.com/officialrepo/VeriSphereVSP) and create a new branch for your feature or bug fix.
+ 2. Make your changes and ensure all tests pass.
+ 3. Submit a pull request with a clear description of your changes.
+ 
+@@ -40,7 +40,7 @@
+ ## License
+ 
+ VeriSphereVSP is distributed under the MIT License. See the [LICENSE](LICENSE) file for details.
+-For more information about open-source licensing, visit [choosealicense.com](https://choosealicense.com/licenses/mit/).
++For more information about open-source licensing, visit [MIT License](https://opensource.org/licenses/MIT).
+ 
+ ## Contact
+ 
+@@ -50,7 +50,7 @@
+ For any questions or feedback, please reach out to us at [support@verispherevsp.com](mailto:support@verispherevsp.com) or join our community forum on [Discourse](https://discourse.verispherevsp.com).
+ 
+-The project is maintained by the VeriSphereVSP team. You can find more about our contributors in the [CONTRIBUTORS.md](CONTRIBUTORS.md) file.
++The project is maintained by the VeriSphereVSP team and an active community of contributors. Check out our [GitHub organization](https://github.com/officialrepo) for more details.
+ 
+ ## Acknowledgments
+ 
+@@ -60,7 +60,7 @@
+ We would like to thank:
+ - Our awesome community for their support and contributions.
+ - The open-source projects that inspired us and provided valuable resources.
+-For a complete list of contributors, please see the [CONTRIBUTORS.md](CONTRIBUTORS.md) file.
++For a complete list of contributors, please visit our [GitHub repository](https://github.com/officialrepo/VeriSphereVSP/graphs/contributors).
+ 
+ ## Roadmap
+ 
+@@ -70,7 +70,7 @@
+ For more details about our future plans and current status, check out the [Roadmap section](docs/roadmap.md) in our documentation.
+ 
+-If you'd like to contribute to the roadmap or suggest new features, please join our discussion forum on [GitHub Discussions](https://github.com/yourusername/VeriSphereVSP/discussions).
++If you'd like to contribute to the roadmap or suggest new features, please join our discussion forum on [GitHub Discussions](https://github.com/officialrepo/VeriSphereVSP/discussions).
+ 
+ ## Changelog
+ 
+@@ -80,7 +80,7 @@
+ For a detailed history of changes and updates, refer to the [Changelog](CHANGELOG.md) file.
+ 
+-Each release notes document provides information about new features, bug fixes, and breaking changes. You can find all past releases in our [GitHub Releases page](https://github.com/yourusername/VeriSphereVSP/releases).
++Each release notes document provides information about new features, bug fixes, and breaking changes. You can find all past releases in our [GitHub Releases page](https://github.com/officialrepo/VeriSphereVSP/releases).
+ 
+ ## Security
+ 
+@@ -90,7 +90,7 @@
+ If you discover a security vulnerability, please report it to us immediately at [security@verispherevsp.com](mailto:security@verispherevsp.com). We appreciate your responsible disclosure and will work with you to resolve the issue promptly.
+ 
+-For more information about our security practices and policies, visit our [Security page](docs/security.md).
++For more information about our security practices and policies, visit our [Security page](https://verispherevsp.com/security/).
+ 
+ ## FAQ
+ 
+@@ -100,7 +100,7 @@
+ For answers to common questions, please refer to our [FAQ section](docs/faq.md).
+ 
+-If your question isn't covered there, feel free to ask in our community forum on [Discourse](https://discourse.verispherevsp.com).
++If your question isn't covered there, feel free to ask in our community forum on [GitHub Discussions](https://github.com/officialrepo/VeriSphereVSP/discussions).
+ 
+ ## Documentation
+ 
+@@ -110,7 +110,7 @@
+ Comprehensive documentation is available in the `docs` directory and online.
+ 
+-For quick reference guides and API documentation, visit our [online docs](https://yourwebsite.com/docs).
++For quick reference guides and API documentation, visit our [online docs](https://verispherevsp.com/docs/).
+ 
+ ## Legal
+ 
+@@ -120,7 +120,7 @@
+ For legal information, including terms of service and privacy policy, please refer to the respective sections in our documentation.
+ 
+-If you have any legal questions or concerns, please contact us at [legal@verispherevsp.com](mailto:legal@verispherevsp.com).
++For more details, visit our [Legal page](https://verispherevsp.com/legal/) or contact us at [legal@verispherevsp.com](mailto:legal@verispherevsp.com).
+ 
+ ## Social Media
+ 
+@@ -130,7 +130,7 @@
+ Follow us on social media to stay updated with the latest news and updates:
+ 
+- Twitter: [@VeriSphereVSP](https://twitter.com/VeriSphereVSP)
++ Twitter: [@Official_VeriSphere](https://twitter.com/Official_VeriSphere)
+  LinkedIn: [VeriSphereVSP](https://linkedin.com/company/verispherevsp)
+  Facebook: [VeriSphereVSP](https://facebook.com/verispherevsp)
