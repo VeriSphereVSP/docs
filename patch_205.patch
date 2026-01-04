@@ -1,0 +1,8 @@
+--- a/VeriSphereVSP/docs/README.md
++++ b/VeriSphereVSP/docs/README.md
+@@ -15,7 +15,7 @@ For more detailed setup instructions, pl
+ 
+ ## Running Tests
+ 
+-To run tests, execute the following command from the project root:
++To run tests, execute the following command from the project directory:
