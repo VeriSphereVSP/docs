@@ -1,0 +1,10 @@
+--- a/VeriSphereVSP/docs/source/installation.rst
++++ b/VeriSphereVSP/docs/source/installation.rst
+@@ -10,7 +10,7 @@ Prerequisites
+ 
+     $ sudo apt-get install python3-pip python3-dev libssl-dev libffi-dev
+ 
+-For macOS:
++For macOS (using Homebrew):
+ 
+     $ brew install python3
