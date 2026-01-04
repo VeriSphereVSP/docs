@@ -1,0 +1,12 @@
+diff --git a/docs/guide.md b/docs/guide.md
+--- a/docs/guide.md
++++ b/docs/guide.md
+@@ -123,7 +123,7 @@
+ 
+ ### Step 4: Configure Advanced Settings
+ 
+-For more advanced configurations, navigate to the `Advanced` tab. Here, you can adjust settings related to performance optimization, security protocols, and integration with external services.
++For more advanced configurations, navigate to the `Advanced` tab in the settings menu. Here, you can adjust settings related to performance optimization, security protocols, and integration with external services.
+ 
+ #### Performance Optimization
+ Adjust the following parameters to optimize system performance:
