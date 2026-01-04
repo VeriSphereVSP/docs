@@ -1,0 +1,9 @@
+diff --git a/docs/verispherevsp/installation.md b/docs/verispherevsp/installation.md
+index abcdef1..ghijklm 100644
+--- a/docs/verispherevsp/installation.md
++++ b/docs/verispherevsp/installation.md
+@@ -12,7 +12,7 @@ To install VeriSphereVSP, follow these steps:
+ 
+ 3. **Install Dependencies**:
+     Run the following command to install all required dependencies:
+-
