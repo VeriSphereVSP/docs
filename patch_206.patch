@@ -1,0 +1,13 @@
+--- a/VeriSphereVSP/docs/issue206.md
++++ b/VeriSphereVSP/docs/issue206.md
+@@ -1,5 +1,5 @@
+ # Issue 206 Documentation Update
+ 
+-The following changes address the bug reported in issue #206. The documentation has been updated to correct inaccuracies and improve clarity.
++The following changes address the bug reported in issue #206 by correcting inaccuracies and improving clarity in the documentation.
+ 
+ ## Affected Sections
+- **Section A:** Incorrect configuration steps have been revised.
+- **Section B:** Outdated code examples have been replaced with current versions.
++ **Section A:** Configuration steps have been corrected to reflect the proper setup procedure.
++ **Section B:** Code examples have been updated to align with the latest API changes.
