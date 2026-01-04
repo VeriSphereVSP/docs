@@ -1,0 +1,7 @@
+--- a/VeriSphereVSP/docs/guides/installation.md
++++ b/VeriSphereVSP/docs/guides/installation.md
+@@ -10,7 +10,7 @@ To install VeriSphereVSP, follow these steps:
+ 
+ 3. Install the package using pip:
+ 
+-
