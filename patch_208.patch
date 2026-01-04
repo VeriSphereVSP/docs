@@ -1,0 +1,11 @@
+diff --git a/docs/installation.md b/docs/installation.md
+index abcdef1..ghijkl2 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -1,5 +1,5 @@
+ # Installation
+ 
+-Install the latest version using pip: `pip install verispherevsp`
++Install the latest version using pip: `pip install VeriSphereVSP`
+ 
+ For additional setup instructions, please refer to our comprehensive guide.
