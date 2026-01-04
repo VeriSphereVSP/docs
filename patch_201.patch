@@ -1,0 +1,25 @@
+diff --git a/VeriSphereVSP/docs/README.md b/VeriSphereVSP/docs/README.md
+index abcdef1..1234567 100644
+--- a/VeriSphereVSP/docs/README.md
++++ b/VeriSphereVSP/docs/README.md
+@@ -1,6 +1,8 @@
+ # VeriSphereVSP
+ 
+-This repository contains documentation and resources for the VeriSphereVSP tool.
++This repository contains documentation and resources for the VeriSphereVSP tool. The package provides tools for verifying spherical data in various applications.
++
++## Installation
++To install the package, ensure you have Python 3.6 or higher installed. Then run:
+ 
+ ### Prerequisites
+ 
+diff --git a/VeriSphereVSP/docs/user_guide.md b/VeriSphereVSP/docs/user_guide.md
+index ghijklm..nopqrst 100644
+--- a/VeriSphereVSP/docs/user Guide.md
++++ b/VeriSphereVSP/docs/user Guide.md
+@@ -5,7 +5,7 @@ Getting Started
+ 
+ ### Basic Usage
+ 
+-To use VeriSphereVSP, import the module and call the `verify_sphere` function:
++To use VeriSphereVSP, import the module and call the `sphere_verification` function:
