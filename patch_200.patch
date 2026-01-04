@@ -1,0 +1,15 @@
+diff --git a/VeriSphereVSP/docs/.gitignore b/VeriSphereVSP/docs/.gitignore
+index abcdef1..1234567 100644
+--- a/VeriSphereVSP/docs/.gitignore
++++ b/VeriSphereVSP/docs/.gitignore
+@@ -1,7 +1,7 @@
+ *.py[cod]
+ *.so
+ __pycache__
++.*.swp
+ .env
+-.vscode/
++.vscode/
+ *.egg-info/
+ dist/
+ build/
