@@ -1,0 +1,13 @@
+--- a/VeriSphereVSP/docs/path/to/file.md
++++ b/VeriSphereVSP/docs/path/to/file.md
+@@ -12,7 +12,7 @@ section:
+   - item3
+   - item4
+ 
+-### Misleading Section Title
++### Corrected Section Title
+ 
+-Old description that was incorrect or unclear.
++New accurate and clear description of the content.
+ 
+ Some additional details or steps to clarify the process.
