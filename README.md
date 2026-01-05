@@ -15,6 +15,6 @@ This server is **builder-focused** and intended for:
 
 It is **not** a general chat or social server.
 
-👉 Join the Discord: https://discord.gg/bzAdzceK
+👉 Join the Discord: https://discord.gg/P2aZRYJZ
 
 If you are reviewing the protocol or contributing code, feel free to introduce yourself in `#start-here`.
