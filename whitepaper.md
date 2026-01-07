@@ -1,6 +1,6 @@
 # VeriSphere: A Game of Staked Truth  
-### White Paper — v13.1 (Avalanche Edition, Draft)  
-**Date:** December 2025  
+### White Paper — v13.2 (Avalanche Edition, Draft)  
+**Date:** January 2026  
 **Contact:** info@verisphere.co  
 **Discord** https://discord.gg/bzAdzceK
 
@@ -184,12 +184,15 @@ VeriSphere is a **market for truth**, where the scoreboard is capital at risk an
 
 ### 3.1 Posting
 
-- Any player may publish a single **atomic assertion** (“Post”).  
-- Each Post must contain only **one claim**.  
-- Publishing a Post requires a **gold-pegged fee** (burned).  
-- A Post begins at **Verity Score (VS) = 0** until total stake on the Post (support or challenge) reaches at least the posting fee.  
-- The posting fee **does not earn yield**, but **does count toward total stake once stake ≥ posting fee**.  
+- Any player may publish a single atomic assertion (“Post”).
+- Each Post must contain only one claim.
+- Publishing a Post requires a small posting fee, denominated in VSP and pegged to a fixed quantity of gold at protocol launch.
+- A Post begins at Verity Score (VS) = 0 until total stake on the Post (support or challenge) reaches at least the posting fee.
+- The posting fee does not earn yield, but does count toward total stake once stake ≥ posting fee.
 - Posts cannot be edited. Corrections must be made by posting a new Post and linking it.
+
+The posting fee exists solely to discourage spam and low-commitment assertions.
+It is designed to remain economically stable over time, independent of token price fluctuations.
 
 ### 3.2 Staking on Claims
 
@@ -475,11 +478,36 @@ This mechanism guarantees:
 | Property | Description |
 |---------|-------------|
 | Supply | Elastic: minted for correct stakes, burned for wrong stakes |
-| Posting fee | in VSP, pegged to $1 worth of gold at launch via oracle |
+| Posting fee | Denominated in VSP, normalized to a fixed gold reference |
 | Reserve mechanics | None — market-driven value |
 | Treasury | For bounties & bootstrap, transparent on-chain (Avalanche) |
 
 Economic equilibrium emerges through **risk, skill, and truth-seeking behavior**.
+
+### 6.1 Gold Reference & Economic Normalization
+
+VeriSphere uses a gold reference solely as a normalization anchor for certain protocol thresholds.
+
+**Gold is not used to price truth, stake outcomes, or Verity Scores.**
+
+Specifically:
+
+- Posting fees are defined as a fixed fraction of a troy ounce of gold at protocol launch.
+- This reference is used only to:
+- - Maintain a consistent real-world cost for posting claims over time
+  - Prevent inflation or deflation of spam resistance as VSP’s market price changes
+- The protocol may consult a widely available gold price oracle to translate this fixed gold reference into an equivalent amount at the time of posting.
+
+Importantly:
+
+- Verity Score (VS) is dimensionless. It depends only on relative stake proportions, not absolute value.
+- Stake competition is internal. All rewards, burns, and redistributions occur purely in VSP.
+- Truth discovery does not depend on the oracle. If oracle data is unavailable, existing stakes and VS calculations continue unaffected.
+
+Gold serves the same role as a unit constant —
+like a meter or a second — not as an external arbiter of truth.
+
+Governance may update oracle sources or normalization parameters over time, but such changes do not retroactively affect historical outcomes or VS comparisons.
 
 ---
 
