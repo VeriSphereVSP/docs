@@ -1,0 +1,19 @@
+--- VeriSphereVSP/docs/Task205.md
++++ VeriSphereVSP/docs/Task205.md
+@@ -1,6 +1,6 @@
+ # Task 205: Bug Fix/Refactor
+ 
+-## Overview
++## Description
+ This task addresses a critical bug in the system monitoring module. The issue arises when handling large datasets, causing unexpected application crashes.
+ 
+ ## Changes Made:
+@@ -9,7 +9,7 @@
+     - Implemented null checks and proper exception handling.
+     - Refactored error logging to provide more detailed information for debugging purposes.
+ 
+-## Testing
++## Verification Steps
+ 1. Run the system monitoring module with large datasets.
+ 2. Ensure no application crashes occur during data processing.
+ 3. Verify that comprehensive error logs are generated when issues arise.
