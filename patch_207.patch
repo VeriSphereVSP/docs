@@ -1,0 +1,20 @@
+diff --git a/mkdocs.yml b/mkdocs.yml
+index abcdef1..1234567 100644
+--- a/mkdocs.yml
++++ b/mkdocs.yml
+@@ -18,7 +18,7 @@ nav:
+     - Overview: overview.md
+     - Getting Started:
+       - Installation: installation.md
+-      - Quick Start: quickstart.md
++      - Quick Start: getting-started/quickstart.md
+       - Configuration: configuration.md
+       - Authentication: authentication.md
+@@ -30,6 +30,7 @@ nav:
+     - Reference:
+       - API: reference/api.md
+       - CLI: reference/cli.md
++      - Troubleshooting: troubleshooting.md
+   - Contact Us: contact.md
+
+ markdown_extensions:
