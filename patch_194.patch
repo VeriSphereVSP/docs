@@ -1,0 +1,11 @@
+--- a/VeriSphereVSP/docs/index.md
++++ b/VeriSphereVSP/docs/index.md
+@@ -1,7 +1,6 @@
+ # VeriSphere VSP Documentation
+ 
+-## Getting Started
+-
++## Overview
+ This section provides comprehensive documentation for the VeriSphere VSP platform. Here you will find information about how to use and integrate with our services.
+ 
+ ### Quick Links
