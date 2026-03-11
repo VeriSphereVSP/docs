@@ -1,5 +1,5 @@
 # VeriSphere: A Truth-Staking Protocol
-### White Paper — v14.0
+### White Paper — v14.1
 **Date:** March 2026
 **Contact:** info@verisphere.co
 
@@ -120,30 +120,92 @@ A post is considered **active** when its total stake meets or exceeds the postin
 
 ### 4.2 Effective Verity Score
 
-The effective Verity Score of a claim incorporates evidence from incoming links. For each incoming link to claim C:
+The effective Verity Score of a claim incorporates evidence from incoming links. Link contributions are **stake-weighted**: the parent claim's economic mass flows through the link to the child, not merely a percentage adjustment. This means the total stake on a parent claim determines how much influence it can exert through its evidence links.
 
-1. Compute `parentVS` — the effective VS of the parent claim (the evidence provider). If the parent would create a cycle (see 4.3), use the parent's base VS instead.
-2. Compute `linkVS` — the base VS of the link post itself. If the link is a challenge link, negate it.
-3. Compute `sumOutgoing` — the total stake across all outgoing links from the parent claim (only links with stake ≥ posting fee).
-4. Compute `linkStake` — the total stake on this link post.
+#### 4.2.1 Credibility Gate
 
-The contribution of this link to C's effective VS is:
+Only credible claims can influence other claims. A parent claim with effective VS ≤ 0 contributes nothing through its outgoing links. Its links become inert until the community rehabilitates the parent with direct support stakes.
+
+Similarly, a link with base VS ≤ 0 (i.e., the community has challenged the evidence relationship itself) contributes nothing.
+
+This rule prevents three classes of abuse:
+
+- **Credibility laundering**: an attacker creates a deliberately false claim, lets it accumulate challenges, then uses it as a challenge link against a target. Without the credibility gate, the double-negative (discredited parent × challenge link) would produce a positive contribution, hijacking other users' challenge stakes.
+- **Poisoned support**: an attacker links a toxic claim as support for a legitimate claim. When the toxic claim is challenged, the support link would become an attack via sign inversion. The credibility gate silences discredited parents regardless of link type.
+- **Oscillation and cascades**: in cyclic graphs, sign inversions from negative-VS parents could create feedback loops and unpredictable downstream effects. The credibility gate prevents these by ensuring only positive-VS claims propagate influence.
+
+#### 4.2.2 Stake-Weighted Contribution Formula
+
+For each incoming link to claim C from parent P via link L:
+
+**Step 1: Compute parent mass.**
+
+The parent's economic mass represents its stake-weighted credibility:
 
 ```
-contribution = (linkVS × parentVS / RAY) × (linkStake / sumOutgoing)
+parentMass = parentEffectiveVS × parentTotalStake / RAY
 ```
 
-The effective VS is:
+Where `parentEffectiveVS` is in the range `(0, RAY]` (always positive due to the credibility gate) and `parentTotalStake` is in token units (wei). The result is in token units and represents how much economic weight the parent carries.
+
+**Step 2: Distribute across outgoing links.**
+
+A parent's mass is distributed among its outgoing links in proportion to their stake, preventing duplication of influence:
 
 ```
-effectiveVS(C) = clamp(baseVS(C) + Σ contributions, -RAY, +RAY)
+linkShare = linkStake / sumOutgoingLinkStake
 ```
 
-This ensures that:
-- A well-supported link from a high-VS parent has a strong effect.
-- A contested link (low linkVS) or one from a low-VS parent has little effect.
-- Challenge links invert the contribution direction.
-- The parent's influence is distributed across its outgoing links in proportion to their stake, preventing duplication of influence.
+Where `sumOutgoingLinkStake` is the sum of total stake across all active outgoing links from P.
+
+**Step 3: Apply link credibility.**
+
+The link's own Verity Score reflects the community's assessment of whether this evidence relationship is valid:
+
+```
+contribution = parentMass × linkShare × linkVS / RAY
+```
+
+Where `linkVS` is the base VS of the link post. If `linkVS ≤ 0`, the link is discredited and contributes nothing.
+
+**Step 4: Apply link direction.**
+
+Challenge links invert the contribution:
+
+```
+if isChallenge: contribution = -contribution
+```
+
+A positive contribution adds to the child's support side. A negative contribution adds to the child's challenge side.
+
+#### 4.2.3 Effective VS Computation
+
+After accumulating all incoming link contributions:
+
+```
+totalSupport = directSupport + sum(positive contributions)
+totalChallenge = directChallenge + abs(sum(negative contributions))
+pool = totalSupport + totalChallenge
+
+effectiveVS = (totalSupport - totalChallenge) / pool × RAY
+```
+
+The result is clamped to `[-RAY, +RAY]`.
+
+#### 4.2.4 Example
+
+Claim A has 2 VSP support (VS = +100%). Claim B has 1 VSP support (VS = +100%). A challenges B via a link with 2 VSP support (link VS = +100%).
+
+- parentMass(A) = 1.0 × 2.0 / 1.0 = 2.0 VSP
+- sumOutgoing(A) = 2.0 (one outgoing link)
+- linkShare = 2.0 / 2.0 = 1.0
+- contribution = 2.0 × 1.0 × 1.0 = 2.0
+- isChallenge → contribution = -2.0
+- B: totalSupport = 1.0, totalChallenge = 0 + 2.0 = 2.0
+- pool = 3.0
+- effectiveVS(B) = (1.0 - 2.0) / 3.0 = **-33.3%**
+
+The claim with 1 VSP support is pushed negative by the 2 VSP challenger. To defend B, participants can: add direct support to B, challenge claim A (reducing its VS and therefore its mass), or challenge the link itself (reducing its VS to silence it).
 
 ### 4.3 Cycle Handling
 
@@ -154,10 +216,16 @@ The link graph permits cycles. The effective VS computation uses a stack-based c
 3. If so, use the parent's **base VS** (not effective VS) as `parentVS`. This breaks the recursion without truncating legitimate deep chains.
 4. A hard depth limit of 32 provides additional safety.
 
-This approach ensures:
-- Two mutually challenging claims can coexist.
-- Symmetric stakes produce symmetric results regardless of computation order.
-- Asymmetric link stakes correctly reflect the economic signal from stakers.
+Combined with the credibility gate (Section 4.2.1), cycles are further stabilized: if a claim's effective VS drops to zero or below during computation, it ceases to influence its neighbors, preventing oscillatory feedback.
+
+### 4.4 Conservation of Influence
+
+A claim's economic mass is finite and is distributed — not duplicated — across its outgoing links. If a parent has mass M and three outgoing links with equal stake, each receives M/3. Adding more outgoing links from the same parent dilutes each link's share.
+
+This ensures:
+- A single claim cannot amplify influence beyond its own stake-weighted credibility.
+- The cost of meaningful influence scales with the stake required to maintain both the parent claim and the link.
+- Link spam is self-defeating: each additional link dilutes the attacker's influence per target.
 
 ---
 
@@ -165,7 +233,7 @@ This approach ensures:
 
 ### 5.1 VSP Token
 
-VSP is the native ERC-20 token of the protocol, deployed on Avalanche C-Chain. It has governance-controlled mint and burn functions managed through an Authority contract.
+VSP is the native ERC-20 token of the protocol, deployed on Avalanche C-Chain. It has governance-controlled mint and burn functions managed through an Authority contract. VSP supports ERC-2612 permit, enabling gasless approvals.
 
 ### 5.2 Posting Fee
 
@@ -189,11 +257,11 @@ All contracts are deployed as UUPS upgradeable proxies behind a governance-contr
 
 | Contract | Purpose |
 |----------|---------|
-| VSPToken | ERC-20 token with Authority-controlled mint and burn |
+| VSPToken | ERC-20 token with ERC-2612 permit, Authority-controlled mint and burn |
 | PostRegistry | Creates claims and links, burns posting fees, stores post metadata |
 | LinkGraph | Stores directed evidence edges, enforces self-loop and duplicate prevention |
 | StakeEngine | Manages per-post staking queues, computes positional rates, handles withdrawals |
-| ScoreEngine | Computes base and effective Verity Scores with cycle-aware recursion |
+| ScoreEngine | Computes base and effective Verity Scores with stake-weighted propagation |
 | ProtocolViews | Read-only aggregation of claim summaries, edge data, and scores |
 | PostingFeePolicy | Governance-configurable posting fee |
 | StakeRatePolicy | Governance-configurable staking rate bounds |
@@ -202,7 +270,7 @@ All contracts are deployed as UUPS upgradeable proxies behind a governance-contr
 
 ### 6.1 Meta-Transactions
 
-The protocol supports gasless meta-transactions via an ERC-2771 trusted forwarder (OpenZeppelin `ERC2771Forwarder`). Users sign EIP-712 typed data; a relay submits the transaction on-chain. This allows interaction without requiring users to hold AVAX for gas.
+The protocol supports gasless meta-transactions via an ERC-2771 trusted forwarder (OpenZeppelin `ERC2771Forwarder`). Users sign EIP-712 typed data; a relay submits the transaction on-chain. Combined with ERC-2612 permit on VSPToken, users can interact with the protocol without holding native gas tokens.
 
 The forwarder is trusted by all governed contracts (PostRegistry, StakeEngine, LinkGraph) through the `ERC2771ContextUpgradeable` base class.
 
@@ -211,7 +279,7 @@ The forwarder is trusted by all governed contracts (PostRegistry, StakeEngine, L
 Governance operates through a `TimelockController` that controls parameter changes, contract upgrades, and treasury operations. During the initial phase, governance is managed by a multisig. The protocol is designed to transition to on-chain governance as the ecosystem matures.
 
 Governance can modify:
-- Posting fee amount and gold normalization factor
+- Posting fee amount
 - Staking rate bounds (min and max APR)
 - Activity threshold
 - Contract implementations (via UUPS proxy upgrades)
@@ -235,7 +303,7 @@ Claims never "resolve." The Verity Score is a continuous, live signal that refle
 
 ### 7.4 Adversarial
 
-The protocol is designed for adversarial participants. There is no assumption of good faith. Economic incentives align with truthful behavior: being right is profitable; being wrong is costly. The protocol does not enforce truth — it creates conditions under which truth is economically favored.
+The protocol is designed for adversarial participants. There is no assumption of good faith. Economic incentives align with truthful behavior: being right is profitable; being wrong is costly. The credibility gate (Section 4.2.1) ensures that discredited claims cannot be weaponized through the evidence graph. The protocol does not enforce truth — it creates conditions under which truth is economically favored.
 
 ---
 
@@ -249,6 +317,6 @@ The protocol may optionally be deployed on a dedicated Avalanche Subnet for isol
 
 ## 9. Conclusion
 
-VeriSphere defines a minimal, permissionless protocol for attaching economic consequence to factual assertions. Claims compete in an open market of support and challenge. Evidence links create a directed graph where credibility propagates through stake-weighted connections. The Verity Score provides a transparent, continuously updated signal of economic consensus.
+VeriSphere defines a minimal, permissionless protocol for attaching economic consequence to factual assertions. Claims compete in an open market of support and challenge. Evidence links create a directed graph where credibility propagates through stake-weighted connections. Only credible claims — those with positive community support — can influence others, preventing abuse through double-negative exploits or poisoned associations. The Verity Score provides a transparent, continuously updated signal of economic consensus.
 
 The protocol does not determine truth. It makes truth economically consequential.
