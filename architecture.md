@@ -139,11 +139,20 @@ Avalanche provides fast finality (<1 sec), mature tooling, and EVM compatibility
 5. Yield/burn applied continuously
 
 ### Verity Score Formula
-With $`A`$ = support and $`D`$ = challenge:
 
-$`VS = (2 \times (A / (A + D)) - 1) \times 100`$
+The base Verity Score is computed asymmetrically:
 
-Clamped to $`[-100, +100]`$.
+With $`A`$ = total support stake, $`D`$ = total challenge stake, $`T = A + D`$:
+
+- If $`A > D`$: $`VS = +(A / T) \times RAY`$
+- If $`D > A`$: $`VS = -(D / T) \times RAY`$
+- If $`A = D`$ or $`T = 0`$: $`VS = 0`$
+
+Where $`RAY = 10^{18}`$. The result is clamped to $`[-RAY, +RAY]`$,
+corresponding to the range $`[-100\%, +100\%]`$.
+
+Note: The StakeEngine uses a simpler symmetric check ($`2A - T`$)
+internally for rate sign determination. Both agree on sign.
 
 ---
 
@@ -161,77 +170,43 @@ Challenge link adds:
 
 $`A_{challenge} += nVS \times R_{ctx}`$
 
-Cycle detection enforces a strict DAG.
+The link graph permits cycles. Two claims may challenge each other
+simultaneously. Cycles are handled during Verity Score computation
+by the ScoreEngine, which uses stack-based detection with a depth
+limit of 32. A post encountered on the computation stack contributes
+zero, preventing self-influence, but other edges of the same parent
+still apply. See the whitepaper §4.3 for details.
 
 ---
 
 ## 5.4 Yield & Burn Mechanics
 
-### Stake Reward and Burn Rate (Revised)
+Stake economics are governed by the StakeEngine v2 implementation,
+which uses tranche-based positional weighting and epoch snapshots.
 
-Stake rewards and burns are computed using a simplified, position-based,
-post-scaled, VS-modulated annualized rate. This rate replaces the previous
-maturity factors, harmonic weighting, and supply-dependent terms.
+The **normative specification** is in `claim-spec-evm-abi.md`,
+Appendix A. Key properties:
 
-The new rate reflects four factors:
+- **Tranche weighting**: Lots are assigned to one of `numTranches`
+  positional tranches (default 10). Tranche 0 (earliest) earns the
+  full base rate; tranche `nT-1` (latest) earns `1/nT` of it.
 
-1. **Queue Position** — earlier stakes feel stronger pressure  
-2. **Post Size** — larger posts exert greater economic gravity  
-3. **Truth Pressure (VS)** — stronger consensus yields greater economic force  
-4. **Governed Bounds** — all stakes operate between minimum and maximum rates  
+- **Base rate**: Computed from verity magnitude, post participation
+  (total stake / sMax), and governance-controlled rate bounds.
 
-### Definitions
+- **sMax decay**: The global reference decays at 0.1% per epoch,
+  preventing historical peaks from permanently suppressing rates.
 
-- `q_i` — queue index of stake `i`, counted from last = 1 to earliest  
-- `Q_max` — the largest queue index among **all queues on all active posts**  
-- `p_i` — total stake on the same side (support/challenge) of the post  
-- `P_max` — largest post side total among **all active posts**  
-- `VS` — Verity Score of the post, from -100 to +100  
-- `v = abs(VS) / 100` — normalized truth pressure  
-- `r_max = 1.00` — maximum annual rate (100%)  
-- `r_min = 0.01` — minimum annual rate (1%)  
+- **Epoch snapshots**: Growth/decay is applied discretely, at most
+  once per `snapshotPeriod` (default 1 day), triggered by any
+  state-changing operation.
 
-### Annualized Rate
+- **Symmetric economics**: Aligned lots grow; misaligned lots shrink.
+  A lot can shrink to zero (total loss).
 
-```
-r_i = max(
-    r_min,
-    (q_i / Q_max) *
-    (p_i / P_max) *
-    (abs(VS) / 100) *
-    r_max
-)
-```
+Refer to `claim-spec-evm-abi.md` Appendix A for the complete
+formulas, symbols, and implementation notes.
 
-Interpretation:
-
-- Early stakes on large posts get the strongest amplification  
-- If wrong, they also suffer the strongest burns  
-- High-consensus posts (`|VS|` near 100) exert the highest pressure  
-- Low-consensus posts (`VS` near 0) exert minimal pressure  
-- Every stake receives at least `r_min` annualized exposure  
-
-### Per-Step Balance Update
-
-Let:  
-- `sgn = +1` if the stake’s side matches the sign of `VS`  
-- `sgn = -1` if opposed  
-- `Δt` = elapsed time in years  
-
-Balance update:
-
-```
-Δn = n * r_i * Δt * sgn
-n_next = max(0, n + Δn)
-```
-
-This creates symmetric economics:
-
-- Early correct stakes compound hardest  
-- Early incorrect stakes burn hardest  
-- Late stakes have reduced risk and reduced reward  
-- Truth pressure determines the global intensity of gains and losses  
-````
 ---
 
 ## 5.5 Withdrawal
@@ -359,7 +334,7 @@ Early foundational work earns the most.
 | Sybils | Capital-weighted incentives |
 | History rewrite | Posts immutable; supersession only |
 | AI hallucination | AI suggestions are off-chain only |
-| Cycle injection | DAG enforcement in LinkGraph |
+| Cycle injection | Stack-based cycle detection in ScoreEngine (depth limit 32); credibility gate silences VS ≤ 0 parents |
 | Treasury abuse | GovernanceHub & multisig gating |
 | Smart contract bugs | Audits, formal proofs, fuzzing |
 

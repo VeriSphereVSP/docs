@@ -76,26 +76,32 @@ Stakes may be withdrawn at any time. Withdrawal from the front of the queue (LIF
 
 Each stake accrues or loses value continuously according to an annualized rate determined by:
 
-1. **Queue position** — earlier stakes face greater exposure.
-2. **Post size** — stakes on larger pools face greater pressure.
-3. **Truth pressure** — the absolute value of the Verity Score determines the strength of the economic force.
-4. **Governed bounds** — rates are bounded between a minimum (1% APR) and maximum (100% APR).
+1. **Truth pressure** — the verity magnitude (`|2A - T| / T`) determines the base strength of the economic force. When VS is exactly neutral (equal support and challenge), no economic effect occurs.
+2. **Post size** — the post's total stake relative to a global reference (`sMax`) scales the rate. Larger posts face greater pressure.
+3. **Queue position (tranche)** — each lot is assigned to a positional tranche based on its stake-weighted queue position. Earlier tranches earn higher rate multipliers; later tranches earn lower ones. The number of tranches is governance-configurable (default: 10).
+4. **Governed bounds** — rates are bounded between a minimum and maximum annual rate, both governance-configurable. The current deployment uses 0% minimum and 100% maximum.
 
-For a stake on the side aligned with the VS sign, value accrues. For a stake on the opposing side, value is burned. The rate formula is:
-
-```
-r_i = max(r_min, r_max × (q_i / Q_max) × (p_i / P_max) × (|VS| / 100))
-```
-
-Where `q_i` is the queue index, `Q_max` is the maximum queue index across all active posts, `p_i` is the post's same-side total stake, and `P_max` is the maximum post size.
-
-Per time step `Δt` (in years):
+For a stake on the side aligned with the VS sign, value accrues (tokens are minted). For a stake on the opposing side, value is burned. The rate formula is:
 
 ```
-Δn = n × r_i × Δt × sgn
+rBase = rMin + ((rMax - rMin) × v × participation) / RAY²
 ```
 
-Where `sgn = +1` if the stake's side matches the VS sign, and `sgn = -1` otherwise.
+Where `v = |2A - T| × RAY / T` (verity magnitude), `participation = T × RAY / sMax` (post size factor), and `rMin`, `rMax` are time-scaled from their annual values.
+
+Each lot's effective rate is further scaled by its positional tranche weight:
+
+```
+positionWeight = (numTranches - tranche) / numTranches
+rLot = rBase × positionWeight
+delta = lot.amount × rLot / RAY
+```
+
+If aligned with VS: `lot.amount += delta`. If opposed: `lot.amount -= min(delta, lot.amount)`.
+
+The global reference `sMax` decays at 0.1% per epoch (day), ensuring that historical peaks do not permanently suppress rates on future posts.
+
+For the full normative specification, see `claim-spec-evm-abi.md`, Appendix A.
 
 ---
 
@@ -214,7 +220,9 @@ The link graph permits cycles. The effective VS computation uses a stack-based c
 1. When computing `effectiveVS(C)`, maintain a stack of post IDs currently being computed.
 2. Before recursing into a parent, check if it is already on the stack.
 3. If so, use the parent's **base VS** (not effective VS) as `parentVS`. This breaks the recursion without truncating legitimate deep chains.
-4. A hard depth limit of 32 provides additional safety.
+4. A hard depth limit of 32 provides additional safety. Beyond this depth, contributions are truncated to zero.
+
+When a cycle is detected, only the cycled post's contribution is zeroed. Other incoming edges of the same parent still compute normally. For example, if computing VS(F) encounters chain F→A→S→F, then F's contribution to S is 0, but A's other incoming edges (if any) are unaffected.
 
 Combined with the credibility gate (Section 4.2.1), cycles are further stabilized: if a claim's effective VS drops to zero or below during computation, it ceases to influence its neighbors, preventing oscillatory feedback.
 
@@ -268,11 +276,13 @@ All contracts are deployed as UUPS upgradeable proxies behind a governance-contr
 | ClaimActivityPolicy | Defines the minimum stake threshold for post activation |
 | Authority | Role-based access control (minter, burner, governance roles) |
 
-### 6.1 Meta-Transactions
+### 6.1 Meta-Transaction Support
 
-The protocol supports gasless meta-transactions via an ERC-2771 trusted forwarder (OpenZeppelin `ERC2771Forwarder`). Users sign EIP-712 typed data; a relay submits the transaction on-chain. Combined with ERC-2612 permit on VSPToken, users can interact with the protocol without holding native gas tokens.
+All governed contracts (PostRegistry, StakeEngine, LinkGraph) inherit `ERC2771ContextUpgradeable`, which allows a trusted forwarder to submit transactions on behalf of users. The trusted forwarder address is set at deployment and can be updated via UUPS proxy upgrades.
 
-The forwarder is trusted by all governed contracts (PostRegistry, StakeEngine, LinkGraph) through the `ERC2771ContextUpgradeable` base class.
+VSPToken supports ERC-2612 permit, enabling signature-based approvals without a separate on-chain transaction.
+
+These primitives allow third-party services to offer gasless interaction with the protocol. The protocol itself does not operate a relay or forwarder — it provides the on-chain hooks that make them possible. Users may always interact with the contracts directly using their own wallet and gas.
 
 ### 6.2 Governance
 

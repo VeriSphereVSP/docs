@@ -96,8 +96,11 @@ Key rules:
 - If targetPostId < 0, the Post is interpreted as a challenging link to
   Post abs(targetPostId).
 - Links themselves can be staked on like any other Post.
-- Circular references are prevented at the application layer and/or
-  in any future LinkGraph contract.
+- The link graph permits cycles. Circular references are handled by
+  the ScoreEngine during Verity Score computation: a stack-based
+  mechanism returns VS=0 for any post already on the computation
+  stack, and a depth limit of 32 provides additional safety. The
+  LinkGraph contract does not enforce a DAG.
 
 Note: For gas and storage efficiency, supportTotal and challengeTotal
 may be tracked in StakeEngine instead of PostRegistry, or omitted from
@@ -138,6 +141,10 @@ Global:
 - postingFeeThreshold: if total stake T on a post is below this, VS does not drive economics.
 
 2.5 Epoch-Based Growth and Decay
+
+Note: The normative specification of stake economics is in
+claim-spec-evm-abi.md, Appendix A. This section provides an
+overview; the appendix governs in case of conflict.
 
 Time is divided into discrete epochs:
 
@@ -221,8 +228,12 @@ Positional weight and per-lot rate:
 
 Notes:
 
-- sMax is not decreased when queues shrink; it only ever grows.
-- This ensures that early stakes on large posts keep a strong positional weight.
+- sMax decays at 0.1% per epoch (day), capped at 3650 epochs of decay
+  per refresh. This prevents historical peaks from permanently suppressing
+  participation factors on future posts.
+- After decay, sMax is raised to at least the current post's total stake.
+- Early stakes on large posts still maintain strong positional weight,
+  but the advantage diminishes over time if overall activity declines.
 - The model discourages "fracturing" into many small posts because those posts
   will have small T relative to sMax, and thus lower effective P.
 

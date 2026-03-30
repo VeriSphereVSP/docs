@@ -333,222 +333,264 @@ their spec version, for example:
 Or a bytes32 constant representing a hash of this document.
 
 ------------------------------------------------------------------------------
-Appendix A. Economic Model (Informative, Link-Aware)
+Appendix A. Economic Model (Normative, v2 — Tranche-Based)
 ------------------------------------------------------------------------------
 
-This appendix describes the intended economics for stake growth and loss.
-It is not ABI, but semantic guidance for implementers and auditors.
+This appendix is the NORMATIVE specification of stake economics.
+It supersedes all previous descriptions of rate formulas, positional
+weighting, and sMax behavior in other documents. The whitepaper and
+architecture documents defer to this appendix on economic details.
+
+This appendix matches the StakeEngine v2 Solidity implementation.
 
 A.1. Symbols
 
 For a given post P:
 
-- A        = direct support stake on P (from StakeEngine)
-- D        = direct challenge stake on P (from StakeEngine)
-- Lp       = support stake from incoming links (LinkGraph)
-- Lm       = challenge stake from incoming links (LinkGraph)
-- A_eff    = effective support = A + Lp
-- D_eff    = effective challenge = D + Lm
-- T_eff    = A_eff + D_eff  (total effective stake)
-- S_total  = total VSP supply
-- VS       = base Verity Score in range [-100, +100]
-- v        = abs(VS) / 100  (verity magnitude in [0,1])
-- side     = 0 (support) or 1 (challenge) for a given StakeLot
-- R_min    = governance-controlled minimum annual rate
-- R_max    = governance-controlled maximum annual rate
-- P_min    = minimum post reward factor (0 < P_min <= 1)
-- P_max    = maximum post reward factor (P_min <= P_max <= 1)
-- dt       = time step length in years (epoch length / 365)
-- n        = current amount staked in a given StakeLot
-- r_eff    = effective annual rate for the post
-- r_user   = effective annual rate for a specific StakeLot
-- sMax     = global maximum total stake across all posts (monotonic)
-- mid      = midpoint of the StakeLot in the side queue, from last toward first
+- A        = support total (sum of all support lot amounts after last snapshot)
+- D        = challenge total (sum of all challenge lot amounts after last snapshot)
+- T        = A + D
+- VS_num   = 2A - T  (signed; positive means support wins)
+- v        = |VS_num| * RAY / T  (verity magnitude, ray-scaled)
 
-A.2. Base Verity Score (effective, link-aware)
+Global:
 
-For a post P, using effective totals that include links:
+- sMax              = global reference stake, decaying (see A.7)
+- R_MIN_ANNUAL      = governance-controlled minimum annual rate (ray, 1e18 = 100%)
+- R_MAX_ANNUAL      = governance-controlled maximum annual rate (ray)
+- EPOCH_LENGTH      = 1 day (86400 seconds)
+- YEAR_LENGTH       = 365 days (31536000 seconds)
+- RAY               = 1e18
+- numTranches (nT)  = governance-controlled positional tranche count (default 10)
+- snapshotPeriod    = minimum time between O(N) snapshot updates (default 1 day)
 
-    A_eff = A + Lp
-    D_eff = D + Lm
-    T_eff = A_eff + D_eff
+Per StakeLot:
 
-If T_eff == 0, VS is defined as 0 (no information).
+- amount             = current token amount (mutated by snapshots)
+- weightedPosition   = stake-weighted queue position (see A.5)
+- side               = 0 (support) or 1 (challenge)
+- entryEpoch         = epoch when lot was first created
 
-Otherwise:
+A.2. Lot Consolidation
 
-    VS = (2 * (A_eff / T_eff) - 1) * 100
+There is exactly one StakeLot per user per side per post. When a user
+stakes additional tokens on a side where they already have a lot, the
+lot is merged:
 
-Clamp VS to [-100, +100].
+    newPosition = (existing.weightedPosition * existing.amount
+                   + queue.total * newAmount)
+                  / (existing.amount + newAmount)
 
-Note: The base verity score stored or exposed by PostRegistry may consider only
-direct stake (A, D). The economic engine in StakeEngine MUST use A_eff and D_eff,
-combining direct stake with LinkGraph totals, when computing VS for growth/decay.
+    existing.amount += newAmount
 
-A.3. Link Contributions
+New lots enter at position = queue.total (back of the queue).
+This means earlier, larger stakes have lower weightedPosition values.
 
-Each relation in LinkGraph has:
+A.3. Base Verity Score
 
-- relationType = 0 (support) or 1 (challenge)
-- ctxStake     = stake committed to that relation
+The StakeEngine computes VS internally using the symmetric formula:
 
-For a given target post P:
+    VS_num = 2A - T
 
-    Lp = sum of ctxStake over all relations with relationType = support and toPost = P
-    Lm = sum of ctxStake over all relations with relationType = challenge and toPost = P
+If VS_num > 0, support wins. If VS_num < 0, challenge wins.
+If VS_num == 0, no economic effect (neutral).
 
-The LinkGraph implementation SHOULD maintain these aggregates incrementally so
-that getLinkTotals(postId) is O(1). There is no recursive propagation; each link
-affects only its direct target, which keeps gas usage bounded.
+Note: The ScoreEngine (used for effective VS with link propagation)
+uses a different, asymmetric formula:
 
-A.4. Post Reward Factor (size-based, anti-fracturing)
+    if A > D: baseVS = +(A * RAY / T)
+    if D > A: baseVS = -(D * RAY / T)
+    if A == D or T == 0: baseVS = 0
 
-Define x as the fraction of total supply staked on this post:
+The StakeEngine formula and ScoreEngine formula agree on sign and on
+the extremes (0, +/-RAY) but differ at intermediate values. This is
+intentional: the StakeEngine needs only the sign and a magnitude for
+rate computation, while the ScoreEngine needs a properly normalized
+score for link propagation.
 
-    x = T_eff / S_total
+A.4. Participation Factor (Post Size)
 
-We treat x as a fixed-point value in [0, 1]. For MVP, take a simple linear
-post factor and clamp it between P_min and P_max:
+The participation factor measures how significant this post's total
+stake is relative to the global reference:
 
-    P_raw = x
-    P = clamp(P_raw, P_min, P_max)
+    participationRay = T * RAY / sMax
 
-Where clamp(y, a, b) = min(max(y, a), b).
+There is no clamping. The factor ranges from near 0 to RAY (or
+above RAY transiently, though sMax is updated to at least T on every
+interaction).
 
-Intuition: Larger, more consolidated posts (higher T_eff relative to S_total)
-have higher P and thus earn rates nearer R_max, making it better to stake into
-shared canonical posts than to fracture stake into many tiny clones.
+A.5. Epoch Rate Computation
 
-A.5. Effective Annual Rate r_eff
+Time is divided into discrete epochs of EPOCH_LENGTH seconds.
+Snapshots are triggered at most once per snapshotPeriod by any
+state-changing operation (stake, withdraw, or explicit updatePost).
 
-Given verity magnitude v and post factor P:
+For a snapshot spanning epochsElapsed epochs:
 
-    r_eff = R_min + (R_max - R_min) * v * P
+Step 1: Compute time-scaled rate bounds.
+
+    rMin = R_MIN_ANNUAL * EPOCH_LENGTH * epochsElapsed / YEAR_LENGTH
+    rMax = R_MAX_ANNUAL * EPOCH_LENGTH * epochsElapsed / YEAR_LENGTH
+
+Step 2: Compute the base rate for this post.
+
+    rBase = rMin + ((rMax - rMin) * vRay * participationRay) / (RAY * RAY)
+
+Where vRay = |VS_num| * RAY / T (verity magnitude) and
+participationRay = T * RAY / sMax (post size factor).
 
 Properties:
+- If VS_num == 0, the snapshot short-circuits: no lots are modified.
+- If T == 0 or sMax == 0, no economic effect.
+- rBase increases with both verity magnitude and post size.
 
-- If VS = 0, then v = 0 and r_eff collapses toward R_min (or 0, depending
-  on implementation). MVP may treat VS = 0 as r_eff = 0 for neutrality.
-- If abs(VS) = 100 and T_eff is large relative to S_total, then v = 1 and
-  P is near P_max, so r_eff tends toward R_max.
+A.6. Positional Tranche Weighting
 
-A.6. Positional Weighting via mid and sMax
+Each lot is assigned to a tranche based on its weightedPosition
+relative to the side total. Tranche 0 is the earliest (best);
+tranche nT-1 is the latest (worst).
 
-Stake lots on each side are ordered by arrival time. The queue is laid out
-from last to first as a continuous axis, and each lot has a midpoint:
+    tranche = (lot.weightedPosition * nT) / sideTotal
+    if tranche >= nT: tranche = nT - 1
 
-- mid is between begin and end (see StakeLot definition)
-- sMax is the global maximum total stake observed across all posts
+Position weight:
 
-Define the positional weight for a lot as:
+    positionWeight = ((nT - tranche) * RAY) / nT
 
-    w = mid / sMax
+This gives tranche 0 a weight of RAY (1.0) and tranche nT-1 a
+weight of RAY/nT (e.g., 0.1 with 10 tranches).
 
-in fixed-point [0,1], clamped if needed. This means:
+Per-lot rate:
 
-- The earliest, largest stakes on the biggest posts have mid near sMax and
-  get w near 1.
-- Late, small stakes on small posts have w near 0.
+    rLot = (rBase * positionWeight) / RAY
 
-A.7. Side Alignment and Sign
+Per-lot balance update:
 
-Define sign alignment as:
+    delta = (lot.amount * rLot) / RAY
 
-- If VS == 0: sign = 0 (neutral)
-- Else if side matches the sign of VS (support when VS > 0, challenge when VS < 0):
-    sign = +1
-- Else:
-    sign = -1
+    if aligned (lot side matches VS sign):
+        lot.amount += delta       (minted)
+    else:
+        loss = min(delta, lot.amount)
+        lot.amount -= loss        (burned)
 
-A.8. Per-lot Annual Rate r_user
+Where "aligned" means:
+- supportWins && lot.side == support, OR
+- !supportWins && lot.side == challenge
 
-If VS == 0 or T_eff is below the posting fee threshold, the lot is neutral:
+A.7. sMax Decay
 
-    r_user = 0
+sMax is NOT monotonically increasing. It decays over time to prevent
+stale historical peaks from permanently suppressing participation
+factors on all future posts.
 
-Else:
+Decay is applied whenever sMax is refreshed (on any state-changing
+operation):
 
-    r_user = sign * r_eff * w
+    for each epoch elapsed since sMaxLastUpdatedEpoch:
+        sMax = (sMax * 0.999e18) / RAY
 
-Where r_eff is from A.5 and w is from A.6.
+Decay is bounded: at most 3650 epochs (10 years) of decay are applied
+in a single refresh, preventing unbounded gas cost if a post is
+untouched for a long time.
 
-A.9. Discrete Stake Update n_next
+After decay, sMax is raised to at least the current post's total:
 
-We use epoch-based discrete updates. Let one epoch be EPOCH_LENGTH seconds,
-and let dt = EPOCH_LENGTH / (365 days) in years. For a given StakeLot with
-amount n:
+    if (sides[0].total + sides[1].total) > sMax:
+        sMax = sides[0].total + sides[1].total
 
-- If VS == 0 or T_eff below threshold:
+A.8. Mint and Burn
 
-      n_next = n
+After all lots on both sides of a post are updated, the StakeEngine:
 
-- Else:
+1. Sums total minted across all aligned lots.
+2. Sums total burned across all misaligned lots.
+3. Calls VSP_TOKEN.mint(address(this), totalMinted).
+4. Calls VSP_TOKEN.burn(totalBurned).
 
-      delta = n * r_user * dt
-      n_next = max(0, n + delta)
+The StakeEngine holds all staked tokens. Minting adds new tokens to
+its balance; burning removes tokens from its balance. The net supply
+change per epoch is (totalMinted - totalBurned).
 
-Key behaviors:
+A.9. View Projection
 
-- If sign > 0 (aligned with VS), and VS is high, and T_eff is large, and
-  mid is high relative to sMax, then the lot grows meaningfully over time.
-- If sign < 0 (opposed to VS) under the same conditions, the lot shrinks,
-  potentially to zero (total economic loss).
-- Moving from a large, old post into a tiny new post loses the advantage of
-  high P and high sMax-weighted position, reducing achievable returns.
+Read calls (getPostTotals, getUserStake) return projected values that
+include unrealized gains and losses since the last snapshot. The
+projection replicates the snapshot math without writing state,
+including sMax decay projection. This ensures views are always current
+without requiring gas.
+
+A.10. Withdrawal
+
+Users may withdraw any amount up to their lot's current amount.
+Withdrawal reduces lot.amount and sideTotal. The lot's
+weightedPosition is NOT changed on withdrawal — the user retains
+their positional advantage for the remaining stake.
+
+A.11. Governance Parameters
+
+The following parameters are modifiable via governance (TimelockController):
+
+- R_MIN_ANNUAL: minimum annual rate (StakeRatePolicy.stakeIntRateMinRay)
+- R_MAX_ANNUAL: maximum annual rate (StakeRatePolicy.stakeIntRateMaxRay)
+- numTranches: number of positional tranches (StakeEngine.setNumTranches)
+- snapshotPeriod: minimum time between snapshots (StakeEngine.setSnapshotPeriod)
+- postingFeeVSP: posting fee in VSP (PostingFeePolicy.setPostingFee)
+- minTotalStakeVSP: activity threshold (ClaimActivityPolicy.setMinTotalStake)
+
+Current deployed values (Fuji testnet):
+- R_MIN_ANNUAL = 0 (no minimum rate)
+- R_MAX_ANNUAL = 1e18 (100% annual)
+- numTranches = 10
+- snapshotPeriod = 1 day
+- postingFeeVSP = 1e18 (1 VSP)
+
+Note: The whitepaper historically referenced a 1% minimum rate.
+This is not deployed. It may be set via governance in the future.
 
 ------------------------------------------------------------------------------
 Appendix B. Behavioral Notes (Informative)
 ------------------------------------------------------------------------------
 
-B.1. Neutral Verity Score (VS = 0)
+B.1. Neutral Verity Score (VS_num = 0)
 
-When VS is exactly zero, the market is "unclear". The economic model treats
-lots as neutral for that epoch:
-
-- r_user = 0
-- n_next = n
-
-No one wins or loses while VS is neutral.
+When VS_num is exactly zero, the snapshot short-circuits immediately.
+No lots are modified; no tokens are minted or burned.
 
 B.2. Incentive Against Post Fracturing
 
-Because the post reward factor P depends on T_eff / S_total, small fractured
-posts have lower P values and yield lower effective rates, even for early
-stakers. It is generally better economically to stake into shared canonical
-posts than to create many near-duplicate posts with low T_eff.
+Because rBase depends on participationRay = T / sMax, posts with small
+T relative to sMax have lower base rates. Staking into a shared
+canonical post yields better returns than splitting across duplicates.
 
-B.3. Incentive To Link Instead Of Clone
+B.3. Lot Consolidation and Position
 
-If a player wants to support or challenge an existing claim, they have two
-main options:
+A user who stakes 100 VSP at position 0, then another 100 VSP when the
+side total is 100, ends up with a single lot of 200 VSP at weighted
+position (0*100 + 100*100) / 200 = 50. This is worse than a user who
+staked 200 VSP at position 0 (weighted position 0), but better than a
+user who staked 200 VSP at position 100.
 
-- Stake directly on the post (support or challenge), or
-- Create a link post plus a LinkGraph relation with ctxStake.
+B.4. sMax Decay Prevents Historical Lock-In
 
-Because link-based ctxStake contributes to the effective totals of the target
-post via Lp and Lm, there is real economic gain to building a coherent web of
-evidence instead of proliferating contradictory or duplicate standalone posts.
+Without decay, a single large historical post could set sMax to a value
+that suppresses participation factors on all future posts indefinitely.
+The 0.1% daily decay ensures sMax gradually tracks current activity.
 
-B.4. No Recursive Propagation On-Chain
+B.5. No Recursive Link Propagation in StakeEngine
 
-Link influence is local: each relation affects only its direct target via
-ctxStake. There is no on-chain recursion over the DAG. This keeps gas usage
-bounded and prevents denial-of-service via long or adversarial chains of links.
+Link influence on Verity Scores is computed by the ScoreEngine, not the
+StakeEngine. The StakeEngine uses only direct stake totals (A, D) for
+its rate computation. Effective VS (including link contributions) is a
+read-only view provided by the ScoreEngine for display and analytics.
 
-Global, recursive truth propagation (for example, multi-hop confidence scores
-or PageRank-style measures) is left to the off-chain application layer, which
-can re-derive the full DAG and expose richer scores without gas limits.
+B.6. Implementation Flexibility
 
-B.5. Implementation Flexibility
+The Solidity implementation may:
+- Use epoch-based discrete updates with a configurable snapshot period.
+- Apply rate updates lazily (on the next state-changing operation).
+- Choose concrete governance parameter values via the TimelockController.
+- Expose additional view functions for analytics.
 
-The actual Solidity implementation may:
-
-- Apply rate updates on stake/withdraw operations, on a per-post update call,
-  or via a keeper pattern.
-- Approximate dt based on block timestamps and a chosen time granularity.
-- Choose concrete values for R_min, R_max, P_min, P_max via governance.
-- Expose additional view functions for analytics (for example, per-lot
-  effective rate estimates or per-post effective A_eff and D_eff).
-
-As long as the semantics remain consistent with this appendix and the ABI in
-the main body, implementations are considered conformant.
+As long as the semantics remain consistent with this appendix,
+implementations are considered conformant.
