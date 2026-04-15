@@ -1,5 +1,5 @@
 # VeriSphere Full System Blueprint (Protocol + App + Business Logic)
-Version: 0.1-draft
+Version: 0.2-draft
 Format: ASCII-only Markdown
 
 This document describes the full VeriSphere MVP system design, split into:
@@ -64,217 +64,224 @@ Layers:
 
 2.2 Components
 
-- VSPToken: ERC-20 compatible token with controlled mint / burn.
-- Authority: Simple role system controlling who may mint or burn.
-- PostRegistry: Manages Posts and link structure (via targetPostId).
-- StakeEngine: Manages staking queues and epoch-based growth/decay.
-- (Future) LinkGraph: Optional separate contract for more complex link
-  semantics; MVP can encode links via targetPostId and side.
+- VSPToken: ERC-20 token with controlled mint / burn and ERC-2612 permit.
+- Authority: Role system controlling who may mint or burn.
+- PostRegistry: Manages Posts (claims and links). Burns posting fees on
+  creation. Enforces case-insensitive whitespace-normalized claim
+  deduplication.
+- LinkGraph: Stores directed evidence edges. Rejects self-loops and
+  duplicate edges. Cycles are permitted at the storage layer; cycle
+  handling is performed in the ScoreEngine (Section 2.3).
+- StakeEngine: Manages consolidated per-user stake lots, snapshot-based
+  growth and decay, and sMax tracking.
+- ScoreEngine: Computes base and effective Verity Scores with stake-
+  weighted propagation, recursion-stack cycle detection, and
+  governance-bounded fan-in.
 
 2.3 Post Object and Link Semantics
 
-Post structure (conceptual):
-
-    struct Post {
-        address creator;
-        uint256 timestamp;
-        string text;
-        int256 targetPostId;    // 0 = not a link
-                                // >0 = link to that post (support)
-                                // <0 = link to abs(targetPostId) (challenge)
-        uint256 supportTotal;   // optional, derived in StakeEngine / indexer
-        uint256 challengeTotal; // optional, derived in StakeEngine / indexer
-    }
+Posts have two content types: Claim and Link. A Claim stores text. A
+Link stores (fromPostId, toPostId, isChallenge) and triggers an edge
+insertion in LinkGraph. The post itself (whether claim or link) is
+the staking target; users stake on a Post by its post ID.
 
 Key rules:
 
-- text is an atomic assertion (single claim).
+- A claim's text is an atomic assertion (single claim).
 - Posts are immutable once created.
-- If targetPostId == 0, the Post is a "root claim".
-- If targetPostId > 0, the Post is interpreted as a supporting link to
-  Post targetPostId.
-- If targetPostId < 0, the Post is interpreted as a challenging link to
-  Post abs(targetPostId).
-- Links themselves can be staked on like any other Post.
-- The link graph permits cycles. Circular references are handled by
-  the ScoreEngine during Verity Score computation: a stack-based
-  mechanism returns VS=0 for any post already on the computation
-  stack, and a depth limit of 32 provides additional safety. The
-  LinkGraph contract does not enforce a DAG.
-
-Note: For gas and storage efficiency, supportTotal and challengeTotal
-may be tracked in StakeEngine instead of PostRegistry, or omitted from
-storage and computed off-chain by indexers.
+- Claim post IDs start at 1; 0 is reserved as a null sentinel.
+- Links between two claims with identical (from, to, isChallenge) are
+  rejected as duplicates. Self-loops (from == to) are rejected.
+- Links themselves are Posts and can be staked on like any other Post.
+- The link graph permits cycles. The LinkGraph contract does not
+  enforce a DAG. Score computation handles cycles in the ScoreEngine
+  via a stack-based detection mechanism (any post already on the
+  recursion stack contributes 0 for that path) and a hard depth limit
+  of 32 as additional safety.
+- The ScoreEngine bounds incoming-edge processing per claim and
+  outgoing-link summation per parent (both default to 64,
+  governance-configurable). Edges beyond the limits are silently
+  skipped in insertion order; off-chain indexers should apply the
+  same caps when recomputing scores.
 
 2.4 Staking Model (Summary)
 
-The StakeEngine maintains per-post queues of "StakeLots" on both sides
-(support and challenge).
+The StakeEngine maintains per-(post, side) consolidated stake lots.
+At most one lot per user per side per post exists at any time. The
+contract enforces single-sided positions: a user with stake on the
+support side of a post cannot add a challenge stake on the same post
+(reverts with `OppositeSideStaked`); they must withdraw fully and
+re-enter on the other side.
 
-Each StakeLot represents a single staking action:
+Each StakeLot represents a user's consolidated position:
 
     struct StakeLot {
         address staker;
-        uint256 amount;
-        uint8   side;         // 0 = support, 1 = challenge
-        uint256 begin;        // queue position start (global from last toward first)
-        uint256 end;          // queue position end
-        uint256 mid;          // (begin + end) / 2
-        uint256 entryEpoch;   // epoch at which this lot was created
+        uint256 amount;             // current amount (post-snapshot)
+        uint8   side;               // 0 = support, 1 = challenge
+        uint256 weightedPosition;   // stake-weighted queue position
+        uint256 entryEpoch;         // epoch of first stake on this side
     }
 
-Per post:
+When a user adds stake to an existing lot, the lot's weightedPosition
+is updated as the stake-weighted average of the prior position and
+the new entry position (the side's current total before the addition):
+
+    new_pos = (old_pos * old_amount + entry_pos * added) / (old_amount + added)
+
+This means later additions move a user's effective position toward
+the back of the queue, diluting any position-weight advantage their
+original stake held.
+
+Per side queue:
 
     struct SideQueue {
         StakeLot[] lots;
         uint256 total;        // sum of amounts on this side
     }
 
+Per post:
+
     struct PostState {
-        SideQueue[2] sides;   // [0] support, [1] challenge
-        uint256 lastUpdatedEpoch;
+        SideQueue[2] sides;            // [0] support, [1] challenge
+        uint256      lastSnapshotEpoch;
+        // user => lots index + 1 (per side)
     }
 
-Global:
+Global StakeEngine state:
 
-- sMax: maximum total stake across all posts ever seen (monotonic nondecreasing).
-- postingFeeThreshold: if total stake T on a post is below this, VS does not drive economics.
+- sMax: a moving reference for the largest post total. Tracked via
+  a top-3 list of (postId, total). Decays at 0.5% per epoch when the
+  current leader is below the previous sMax (capped at 3650 epochs of
+  compounded decay per refresh). When a leader exists, sMax is the
+  greater of the decayed value and the leader's total.
+- snapshotPeriod: minimum elapsed time between O(N) per-post
+  recomputations. Defaults to 1 day; governance-configurable.
+- numTranches: legacy storage variable; the current implementation
+  uses continuous position weighting (not discrete tranches).
 
-2.5 Epoch-Based Growth and Decay
+Activity threshold:
+
+- A post is "active" when its total stake is at or above the
+  ClaimActivityPolicy threshold. Inactive posts contribute nothing
+  to other posts' effective VS.
+
+2.5 Snapshot-Based Growth and Decay
 
 Note: The normative specification of stake economics is in
 claim-spec-evm-abi.md, Appendix A. This section provides an
 overview; the appendix governs in case of conflict.
 
-Time is divided into discrete epochs:
+Time is divided into epochs of one day. Per-post recomputation
+("snapshot") runs at most once per snapshotPeriod, triggered by any
+stake/withdraw on that post or by an explicit `updatePost(postId)`
+call (permissionless). Between snapshots, view functions project
+unrealized gains and losses lazily so that reads always reflect the
+current state without writing to storage.
 
-- EPOCH_LENGTH = 1 day (governance-tunable).
-- Each Post has lastUpdatedEpoch. When updatePost(postId) is called:
-  - Compute how many epochs have elapsed.
-  - Apply growth or decay for support and challenge lots based on:
-    - Verity Score (VS) sign and magnitude.
-    - Post size relative to sMax.
-    - Lot queue position (mid) relative to sMax.
-
-Verity Score (base):
+Verity Score (base) used by the StakeEngine:
 
 - Let A = support total, D = challenge total, T = A + D.
-- If T == 0 or T < postingFeeThreshold, treat as neutral (no economic effect).
-- VS is conceptually:
+- If T == 0, sMax == 0, or 2A == T (perfectly balanced), the snapshot
+  is economically neutral and only the lastSnapshotEpoch is bumped.
+- Otherwise:
 
-      VS = (2 * A / T - 1) * 100
+      vsNum = 2A - T            (signed)
+      supportWins = vsNum > 0
+      absVS = abs(vsNum)
+      vRay  = absVS * RAY / T
+      participationRay = T * RAY / sMax
 
-- Only the sign and magnitude drive economics in StakeEngine.
+Per-epoch effective base rate:
 
-Post size factor:
+      rMin = R_MIN_ANNUAL_RAY * EPOCH_LENGTH * epochsElapsed / YEAR
+      rMax = R_MAX_ANNUAL_RAY * EPOCH_LENGTH * epochsElapsed / YEAR
+      rBase = rMin + (rMax - rMin) * vRay * participationRay / RAY^2
 
-- T is total stake on this post.
-- sMax is global max T seen so far across all posts.
-- x = T / sMax.
-- A clamped post factor P is:
+Per-side budget and per-lot distribution (continuous position
+weighting):
 
-      P_raw = x
-      P = clamp(P_raw, P_min, P_max)
+      budget = sideTotal * rBase / RAY
 
-  where P_min and P_max are governance parameters in ray units (1e18).
+For each lot on the side:
 
-Per-epoch effective rate:
+      posShare    = lot.weightedPosition * RAY / sideTotal       (clamped to RAY)
+      posWeight   = RAY - posShare
+      myWeighted  = lot.amount * posWeight / RAY
 
-- Annual min and max rates:
+The total weighted stake across the side is the sum of myWeighted.
+Each lot's share of the budget is:
 
-      R_MIN_ANNUAL (ray)
-      R_MAX_ANNUAL (ray)
+      delta = budget * myWeighted / totalWeightedStake
 
-- For epochsElapsed:
+If the lot is on the winning side (aligned):
 
-      rMinEpoch = R_MIN_ANNUAL * EPOCH_LENGTH * epochsElapsed / YEAR_IN_SECONDS
-      rMaxEpoch = R_MAX_ANNUAL * EPOCH_LENGTH * epochsElapsed / YEAR_IN_SECONDS
-      rSpanEpoch = max(rMaxEpoch - rMinEpoch, 0)
+      lot.amount += delta              (StakeEngine mints delta)
 
-- Verity magnitude:
+If the lot is on the losing side (opposed):
 
-      vRay = abs(2A - T) * 1e18 / T
+      loss = min(delta, lot.amount)
+      lot.amount -= loss               (StakeEngine burns loss)
 
-- Effective rate (ray):
-
-      rEff = rMinEpoch + (rSpanEpoch * vRay * P) / 1e36
-
-Positional weight and per-lot rate:
-
-- Each lot has mid position in the queue, from 0 up to T.
-- Global normalization uses sMax:
-
-      wRay = lot.mid * 1e18 / sMax
-
-- If wRay is small, the lot is "late"; if wRay is large, the lot is "early"
-  in the largest possible context.
-- Side alignment:
-  - If supportWins and lot side is support: aligned
-  - If challengeWins and lot side is challenge: aligned
-  - Otherwise: misaligned
-
-- Per-lot absolute rate:
-
-      rUserAbs = rEff * wRay / 1e18
-
-- Growth or decay:
-
-      delta = lot.amount * rUserAbs / 1e18
-
-      if aligned:
-          lot.amount += delta
-      else:
-          lot.amount = max(lot.amount - delta, 0)
+Side totals are then recomputed by summing lot amounts. Lot amounts
+never go below zero (limited liability).
 
 Notes:
 
-- sMax decays at 0.1% per epoch (day), capped at 3650 epochs of decay
-  per refresh. This prevents historical peaks from permanently suppressing
-  participation factors on future posts.
-- After decay, sMax is raised to at least the current post's total stake.
-- Early stakes on large posts still maintain strong positional weight,
-  but the advantage diminishes over time if overall activity declines.
-- The model discourages "fracturing" into many small posts because those posts
-  will have small T relative to sMax, and thus lower effective P.
+- sMax decay (0.5% per epoch, compounded, capped at 3650 epochs per
+  refresh) prevents historical peaks from permanently suppressing
+  rates on smaller, later posts.
+- Position weighting is continuous and stake-weighted, not tranched.
+  Earlier-positioned (low weightedPosition) lots earn closer to the
+  full rate; later-positioned lots earn proportionally less.
+- The model still discourages "fracturing" into many small posts:
+  small T relative to sMax yields low participation, hence low rate.
 
 2.6 Staking API (Simplified)
 
 StakeEngine exposes:
 
 - stake(postId, side, amount):
-  - Pulls amount of VSP from the user via transferFrom.
-  - Appends a StakeLot for that post and side.
-  - Recomputes begin, end, mid for that side and updates T and sMax.
+  - Reverts if the user has any stake on the opposite side.
+  - Pulls amount of VSP via transferFrom.
+  - Either creates a new lot at the back of the queue or merges into
+    the user's existing lot (stake-weighted position update).
+  - May trigger a snapshot if the snapshot period has elapsed.
+  - Updates sMax via the top-3 tracker.
 
 - withdraw(postId, side, amount, lifo):
-  - Withdraws amount from the caller's lots on that side.
-  - lifo chooses whether to draw from last lots first or first lots first.
-  - After withdrawal, recomputes begin, end, mid and totals for that side.
+  - The lifo parameter is deprecated and ignored; kept for ABI
+    compatibility.
+  - May trigger a snapshot first (materializing gains/losses).
+  - Reduces the caller's lot amount in place; weighted position
+    is unchanged.
+  - Updates sMax.
 
 - updatePost(postId):
-  - Applies epoch growth/decay to all StakeLots for that post.
-  - Updates PostState.lastUpdatedEpoch.
+  - Permissionless. Forces a snapshot if any time has elapsed since
+    the last one. Cheap when called multiple times in the same epoch
+    (early return).
 
 2.7 VSP Token and Authority
 
 VSPToken:
 
-- Standard ERC-20 interface.
-- Controlled mint and burn via Authority.
+- ERC-20 with ERC-2612 permit and UUPS upgradeability.
+- Mint and burn gated by Authority roles.
 
 Authority:
 
-- owner
+- owner (governance)
 - minters
 - burners
 
 Main relationships:
 
-- StakeEngine will, in a full rollout, mint and burn VSP to realize
-  the economic growth or decay of stakes (MVP may simulate by internal
-  accounting first).
-- Other protocol modules (governance, treasury) can also mint/burn
-  under Authority.
+- StakeEngine holds the minter and burner roles. It mints VSP into
+  itself for winning lots and burns VSP from its own balance for
+  losing lots.
+- The PostRegistry holds the burner role for posting fee burns; it
+  pulls VSP from the user via transferFrom and immediately burns it.
 
 -------------------------------------------------------------------------------
 3. Application Layer (Off-Chain)
@@ -312,9 +319,11 @@ This is conceptually similar to:
    - Listens to Avalanche logs.
    - Builds a relational or graph representation of:
      - Posts and their metadata.
-     - Stakes and epoch history.
-     - Link relations derived from targetPostId.
+     - Stakes and snapshot history.
+     - Link relations from LinkGraph events.
    - Provides fast queries for UI and analytics.
+   - When recomputing effective VS off-chain, must apply the same
+     fan-in caps as the on-chain ScoreEngine to remain consistent.
 
 3. Database
    - Stores:
@@ -394,8 +403,15 @@ When a user attempts to create a new Post:
 3. The UI prompts the user:
    - "Similar claims exist. Do you want to stake on one of these instead?"
 4. If the user insists, they can still create a new Post, but:
-   - They may face a smaller P factor if stake fractures across many similar posts.
+   - They may face a smaller participation factor if stake fractures
+     across many similar posts.
    - The UI can mark the new Post as a "possible duplicate".
+
+Note: the on-chain PostRegistry also enforces a strict, normalized
+duplicate check (case-insensitive, whitespace-collapsed, trimmed)
+that reverts with DuplicateClaim before any fee is charged. The
+semantic service catches near-duplicates the on-chain check would
+miss.
 
 Atomicity:
 
@@ -409,9 +425,9 @@ Atomicity:
 
 Typical backend jobs:
 
-- Epoch tick:
-  - For each Post with nonzero stake and that has not been updated this epoch:
-    - Call updatePost(postId) on-chain (or in batches).
+- Snapshot tick:
+  - For each Post with nonzero stake whose snapshot period has
+    elapsed, call updatePost(postId) on-chain (or in batches).
 - Indexing:
   - Continuously sync new blocks.
   - Update DB with new Posts and stakes.
@@ -419,7 +435,7 @@ Typical backend jobs:
   - Compute trending Posts by:
     - Net stake delta.
     - VS changes.
-    - New high P posts.
+    - New high-participation posts.
 - Cleanup:
   - Archive or compress old logs.
   - Maintain search indices.
@@ -497,6 +513,10 @@ Sybils:
 
 - Economic costs for meaningful influence.
 - App layer can add soft identity checks if desired.
+- Note: lot consolidation prevents one user from gaming position
+  weight by splitting into many lots, but does not prevent a user
+  from spreading stake across multiple wallets. Sybil resistance at
+  the wallet level is an open application-layer concern.
 
 Centralization:
 
@@ -508,10 +528,18 @@ Centralization:
 -------------------------------------------------------------------------------
 
 - Protocol layer:
-  - Defines Posts, stakes, and link semantics via targetPostId.
-  - Assigns economic outcomes through epoch-based growth and decay.
-  - Uses a global sMax and per-lot mid positions to favor early stakes
-    on large Posts.
+  - Defines Posts, stakes, and links via PostRegistry, StakeEngine,
+    LinkGraph, and ScoreEngine.
+  - Stakes are consolidated per (user, post, side) with stake-weighted
+    position averaging on additions; positions cannot be split, and a
+    user cannot hold both sides on the same post.
+  - Assigns economic outcomes through snapshot-based growth and decay,
+    with continuous position weighting.
+  - Uses a top-3 sMax tracker with 0.5%/epoch decay to favor activity
+    on large posts without permanently suppressing later participation.
+  - Permits cycles in the link graph; safety is achieved by recursion-
+    stack cycle detection plus a depth-32 cap and bounded fan-in in
+    the ScoreEngine.
 
 - Application layer:
   - Treats all off-chain data as discussion material only.
