@@ -1,5 +1,5 @@
 # VeriSphere Claim and Staking Specification (EVM-ABI Formal Style)
-Version: 0.5 (MVP Draft, ASCII only, link-aware)
+Version: 0.6 (MVP, ASCII only, link-aware)
 
 This document defines the ABI-level specification for the core VeriSphere
 on-chain components:
@@ -21,120 +21,103 @@ Note: These structs are conceptual. Actual storage layout and packing may vary.
 
 ## 1.1 Post
 
-A Post is an atomic claim. Optionally it may act as a link from one claim to
-another via targetPostId.
-
-- targetPostId = 0      -> standalone claim
-- targetPostId > 0      -> this post supports post targetPostId
-- targetPostId < 0      -> this post challenges post abs(targetPostId)
-
-Post-level support and challenge from direct stake are tracked separately from
-link-based influence (which is handled by LinkGraph).
+A Post is an atomic claim or a link between two claims.
 
 struct Post {
     address creator;
     uint256 timestamp;
-    string  text;
-    int256  targetPostId;    // 0 = standalone, >0 support link, <0 challenge link
-
-    // Direct stake on this post (from StakeEngine)
-    uint256 directSupportTotal;
-    uint256 directChallengeTotal;
+    ContentType contentType;  // 0 = Claim, 1 = Link
+    uint256 contentId;        // index into claims[] or links[] array
+    uint256 creationFee;      // VSP burned on creation
 }
 
 ## 1.2 StakeLot
 
-A StakeLot is a single, independent staking position in a post-side queue.
-Multiple lots from the same staker are treated independently. Each lot has
-a begin, end, and mid position within the side queue, used for queue-based
-weighting.
+A StakeLot is a consolidated staking position — one per user per side
+per post. When a user stakes additional tokens on a side where they
+already have a lot, the existing lot is merged (see Appendix A.2).
 
 struct StakeLot {
     address staker;
     uint256 amount;
-    uint8   side;          // 0 = support, 1 = challenge
-    uint256 begin;         // queue position start (from last toward first)
-    uint256 end;           // queue position end
-    uint256 mid;           // (begin + end) / 2
-    uint256 entryEpoch;    // epoch index when lot was created
+    uint8   side;              // 0 = support, 1 = challenge
+    uint256 weightedPosition;  // stake-weighted queue coordinate
+    uint256 entryEpoch;        // epoch when lot was first created
 }
 
-## 1.3 Relation
+## 1.3 Link
 
-A Relation is an explicit link between two posts. It is created in the
-LinkGraph and carries contextual stake (ctxStake). The economic impact of
-links is modeled via LinkGraph summary functions, not by walking the full DAG
-in StakeEngine.
+A Link is an explicit directed edge between two claims, stored in both
+PostRegistry (as a Link struct) and LinkGraph (as adjacency lists).
 
-struct Relation {
-    uint256 fromPost;       // child / evidence post
-    uint256 toPost;         // parent / target post
-    uint8   relationType;   // 0 = support, 1 = challenge
-    uint256 ctxStake;       // stake locked into this relation context
+struct Link {
+    uint256 fromPostId;     // evidence provider (outgoing end)
+    uint256 toPostId;       // evidence receiver (incoming end)
+    bool    isChallenge;    // true = from challenges to; false = from supports to
 }
+
+The link graph permits cycles. The LinkGraph contract does not enforce
+acyclicity; cycle handling is performed by the ScoreEngine at read time
+(see Appendix C).
 
 ------------------------------------------------------------------------------
 2. IPostRegistry ABI
 ------------------------------------------------------------------------------
 
 interface IPostRegistry {
-    // Create a new immutable post (atomic claim).
+    // Create a new immutable claim.
     // text           Claim text, expected to be atomic and non-empty.
-    // targetPostId   0 for standalone; >0 supports that post; <0 challenges it.
+    //                Max length: 500 bytes.
+    //                Deduplicated via case-insensitive, whitespace-normalized
+    //                keccak256 hash. Reverts DuplicateClaim(existingPostId)
+    //                if a matching claim already exists.
     // Returns        Newly assigned postId.
-    function createPost(string calldata text, int256 targetPostId)
+    function createClaim(string calldata text)
         external
         returns (uint256 postId);
+
+    // Create a link between two claims.
+    // fromPostId     The claim providing evidence (outgoing end).
+    // toPostId       The claim receiving evidence (incoming end).
+    // isChallenge    True if from challenges to; false if from supports to.
+    // Both posts must exist and be claims (not links).
+    // Reverts DuplicateLink if the same (from, to, isChallenge) already exists.
+    // Returns        Newly assigned postId for the link post.
+    function createLink(
+        uint256 fromPostId,
+        uint256 toPostId,
+        bool isChallenge
+    ) external returns (uint256 postId);
 
     // Read a post by id.
     function getPost(uint256 postId)
         external
         view
-        returns (
-            address creator,
-            uint256 timestamp,
-            string memory text,
-            int256 targetPostId,
-            uint256 directSupportTotal,
-            uint256 directChallengeTotal
-        );
+        returns (Post memory);
 
-    // Called by StakeEngine to sync direct stake totals for this post.
-    function setDirectTotals(
-        uint256 postId,
-        uint256 supportTotal,
-        uint256 challengeTotal
-    ) external;
+    function getClaim(uint256 claimId) external view returns (string memory);
+    function getLink(uint256 linkId) external view returns (Link memory);
 
-    // Convenience view for the base verity score using direct stake only.
-    // This does not include link-based influence. Economic calculations
-    // in StakeEngine will use effective totals that combine direct stake
-    // with LinkGraph summaries (see Appendix A).
-    function getBaseVerityScore(uint256 postId)
+    // Check if a claim with this text already exists on-chain.
+    // Returns existingPostId, or type(uint256).max if not found.
+    function findClaim(string calldata text)
         external
         view
-        returns (int256 vs);
+        returns (uint256 existingPostId);
 
     // Events
-
-    event PostCreated(
-        uint256 indexed postId,
-        address indexed creator,
-        int256 targetPostId,
-        string text
-    );
-
-    event DirectTotalsUpdated(
-        uint256 indexed postId,
-        uint256 supportTotal,
-        uint256 challengeTotal
-    );
+    event PostCreated(uint256 indexed postId, address indexed creator, ContentType contentType);
+    event FeeBurned(uint256 indexed postId, uint256 feeAmount);
 
     // Errors
-
-    error EmptyText();
-    error InvalidTargetSelf();
-    error NotStakeEngine();
+    error InvalidClaim();
+    error ClaimTooLong(uint256 length, uint256 max);
+    error DuplicateClaim(uint256 existingPostId);
+    error DuplicateLink(uint256 fromPostId, uint256 toPostId, bool isChallenge);
+    error FromPostDoesNotExist();
+    error ToPostDoesNotExist();
+    error FromPostMustBeClaim();
+    error ToPostMustBeClaim();
 }
 
 ------------------------------------------------------------------------------
@@ -143,71 +126,39 @@ interface IPostRegistry {
 
 interface IStakeEngine {
     // Stake VSP on a post, on either support or challenge side.
-    // postId   Target post id.
-    // side     0 = support, 1 = challenge.
-    // amount   Amount of VSP to stake (must be non-zero).
-    function stake(
-        uint256 postId,
-        uint8 side,
-        uint256 amount
-    ) external;
+    // Reverts OppositeSideStaked if user already has stake on the other side.
+    function stake(uint256 postId, uint8 side, uint256 amount) external;
 
-    // Withdraw stake from a post, choosing FIFO or LIFO across the caller's lots.
-    // postId   Target post id.
-    // side     0 = support, 1 = challenge.
-    // amount   Total amount to withdraw.
-    // lifo     If true, withdraw latest lots first; if false, earliest first.
-    function withdraw(
-        uint256 postId,
-        uint8 side,
-        uint256 amount,
-        bool lifo
-    ) external;
+    // Withdraw stake from a post. Reduces the user's consolidated lot.
+    // lifo parameter is accepted for ABI compatibility but ignored.
+    function withdraw(uint256 postId, uint8 side, uint256 amount, bool lifo) external;
 
-    // Apply daily epoch growth/decay to all lots for a post.
-    // Any address may call; typically a keeper or backend.
+    // Apply epoch growth/decay. Anyone may call; typically a keeper or backend.
     function updatePost(uint256 postId) external;
 
-    // View total direct stake per side for a post.
+    // Returns projected totals (includes unrealized gains/losses).
     function getPostTotals(uint256 postId)
-        external
-        view
-        returns (uint256 supportTotal, uint256 challengeTotal);
+        external view returns (uint256 support, uint256 challenge);
 
-    // View lots on a given side for a post.
-    function getLots(uint256 postId, uint8 side)
-        external
-        view
-        returns (StakeLot[] memory);
+    // Returns projected user stake (includes unrealized gains/losses).
+    function getUserStake(address user, uint256 postId, uint8 side)
+        external view returns (uint256);
+
+    // Remove zero-amount ghost lots. Governance-only.
+    function compactLots(uint256 postId, uint8 side) external;
 
     // Events
-
-    event StakeAdded(
-        uint256 indexed postId,
-        address indexed staker,
-        uint8 side,
-        uint256 amount
-    );
-
-    event StakeWithdrawn(
-        uint256 indexed postId,
-        address indexed staker,
-        uint8 side,
-        uint256 amount,
-        bool lifo
-    );
-
-    event PostUpdated(
-        uint256 indexed postId,
-        uint256 epoch,
-        uint256 supportTotal,
-        uint256 challengeTotal
-    );
+    event StakeAdded(uint256 indexed postId, address indexed staker, uint8 side, uint256 amount);
+    event StakeWithdrawn(uint256 indexed postId, address indexed staker, uint8 side, uint256 amount, bool lifo);
+    event PostUpdated(uint256 indexed postId, uint256 epoch, uint256 supportTotal, uint256 challengeTotal);
+    event EpochMinted(uint256 indexed postId, uint256 amount);
+    event EpochBurned(uint256 indexed postId, uint256 amount);
+    event PositionsRescaled(uint256 indexed postId, uint8 side, uint256 oldMax, uint256 newCeiling);
 
     // Errors
-
     error InvalidSide();
     error AmountZero();
+    error OppositeSideStaked();
     error NotEnoughStake();
     error ZeroAddressToken();
 }
@@ -217,51 +168,25 @@ interface IStakeEngine {
 ------------------------------------------------------------------------------
 
 interface ILinkGraph {
-    // Create a contextual relation (edge) between two posts.
-    // fromPost      Child / evidence post id.
-    // toPost        Parent / target post id.
-    // relationType  0 = support, 1 = challenge.
-    // ctxStake      VSP stake associated with this relation context.
-    //
-    // Must enforce:
-    // - No cycles in the link graph (DAG only).
-    // - fromPost != toPost.
-    function linkPosts(
-        uint256 fromPost,
-        uint256 toPost,
-        uint8 relationType,
-        uint256 ctxStake
+    // Called by PostRegistry when a link is created.
+    function addEdge(
+        uint256 fromClaimPostId,
+        uint256 toClaimPostId,
+        uint256 linkPostId,
+        bool isChallenge
     ) external;
 
-    // View relations where the given post is the parent (toPost).
-    function getRelations(uint256 postId)
-        external
-        view
-        returns (Relation[] memory);
-
-    // Summary view for economic use:
-    // Returns (linkSupportTotal, linkChallengeTotal) for the target post,
-    // using the ctxStake of each relation and its relationType.
-    function getLinkTotals(uint256 postId)
-        external
-        view
-        returns (uint256 linkSupportTotal, uint256 linkChallengeTotal);
+    function getOutgoing(uint256 claimPostId) external view returns (Edge[] memory);
+    function getIncoming(uint256 claimPostId) external view returns (IncomingEdge[] memory);
+    function hasEdge(uint256 fromClaimPostId, uint256 toClaimPostId, bool isChallenge)
+        external view returns (bool);
 
     // Events
-
-    event RelationAdded(
-        uint256 indexed fromPost,
-        uint256 indexed toPost,
-        uint8 relationType,
-        uint256 ctxStake
-    );
+    event EdgeAdded(uint256 indexed from, uint256 indexed to, uint256 indexed linkPostId, bool isChallenge);
 
     // Errors
-
-    error InvalidRelationType();
-    error CycleDetected();
-    error ZeroContextStake();
-    error InvalidPostId();
+    error SelfLoop();
+    error DuplicateEdge(uint256 fromClaimPostId, uint256 toClaimPostId, bool isChallenge);
 }
 
 ------------------------------------------------------------------------------
@@ -269,33 +194,9 @@ interface ILinkGraph {
 ------------------------------------------------------------------------------
 
 interface IVSPToken {
-    // Mint new VSP to an address.
-    // Restricted to authorized minters in Authority.
     function mint(address to, uint256 amount) external;
-
-    // Burn VSP from msg.sender.
-    // Restricted to authorized burners in Authority.
     function burn(uint256 amount) external;
-
-    // Burn VSP from another address with allowance.
-    // Restricted to authorized burners in Authority.
     function burnFrom(address from, uint256 amount) external;
-
-    // Standard ERC20-like functions
-    function transfer(address to, uint256 amount) external returns (bool);
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-
-    function balanceOf(address account) external view returns (uint256);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    // Standard ERC20 events
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    // Role errors (logical; implementation may use revert strings instead)
-    error NotMinter();
-    error NotBurner();
 }
 
 ------------------------------------------------------------------------------
@@ -303,18 +204,9 @@ interface IVSPToken {
 ------------------------------------------------------------------------------
 
 interface IAuthority {
-    // Views
     function owner() external view returns (address);
     function isMinter(address who) external view returns (bool);
     function isBurner(address who) external view returns (bool);
-
-    // Events
-    event OwnerChanged(address indexed oldOwner, address indexed newOwner);
-    event MinterSet(address indexed who, bool enabled);
-    event BurnerSet(address indexed who, bool enabled);
-
-    // Errors
-    error NotOwner();
 }
 
 ------------------------------------------------------------------------------
@@ -322,18 +214,11 @@ interface IAuthority {
 ------------------------------------------------------------------------------
 
 - Specification name: claim-spec-evm-abi
-- Version: 0.5-mvp-links
+- Version: 0.6-mvp-links
 - Chain target: Avalanche C-Chain / Subnet (EVM compatible)
 
-Implementations SHOULD expose an on-chain constant or function that encodes
-their spec version, for example:
-
-    function specVersion() external pure returns (string memory);
-
-Or a bytes32 constant representing a hash of this document.
-
 ------------------------------------------------------------------------------
-Appendix A. Economic Model (Normative, v2 — Tranche-Based)
+Appendix A. Economic Model (Normative — Continuous Positional Weighting)
 ------------------------------------------------------------------------------
 
 This appendix is the NORMATIVE specification of stake economics.
@@ -341,7 +226,7 @@ It supersedes all previous descriptions of rate formulas, positional
 weighting, and sMax behavior in other documents. The whitepaper and
 architecture documents defer to this appendix on economic details.
 
-This appendix matches the StakeEngine v2 Solidity implementation.
+This appendix matches the deployed StakeEngine Solidity implementation.
 
 A.1. Symbols
 
@@ -361,21 +246,23 @@ Global:
 - EPOCH_LENGTH      = 1 day (86400 seconds)
 - YEAR_LENGTH       = 365 days (31536000 seconds)
 - RAY               = 1e18
-- numTranches (nT)  = governance-controlled positional tranche count (default 10)
 - snapshotPeriod    = minimum time between O(N) snapshot updates (default 1 day)
 
 Per StakeLot:
 
 - amount             = current token amount (mutated by snapshots)
-- weightedPosition   = stake-weighted queue position (see A.5)
+- weightedPosition   = stake-weighted queue coordinate (see A.2, A.5)
 - side               = 0 (support) or 1 (challenge)
 - entryEpoch         = epoch when lot was first created
 
 A.2. Lot Consolidation
 
-There is exactly one StakeLot per user per side per post. When a user
-stakes additional tokens on a side where they already have a lot, the
-lot is merged:
+There is exactly one StakeLot per user per side per post. A user cannot
+hold lots on both sides of the same post; attempting to stake on the
+opposite side reverts with OppositeSideStaked.
+
+When a user stakes additional tokens on a side where they already have
+a lot, the lot is merged:
 
     newPosition = (existing.weightedPosition * existing.amount
                    + queue.total * newAmount)
@@ -444,62 +331,92 @@ Properties:
 - If T == 0 or sMax == 0, no economic effect.
 - rBase increases with both verity magnitude and post size.
 
-A.6. Positional Tranche Weighting
+A.6. Continuous Positional Weighting
 
-Each lot is assigned to a tranche based on its weightedPosition
-relative to the side total. Tranche 0 is the earliest (best);
-tranche nT-1 is the latest (worst).
+Each lot's reward share is determined by its weightedPosition relative
+to the side total. There are no discrete buckets or tranches; the
+weight is a continuous linear function:
 
-    tranche = (lot.weightedPosition * nT) / sideTotal
-    if tranche >= nT: tranche = nT - 1
+    positionWeight = 1 - (lot.weightedPosition / sideTotal)
 
-Position weight:
+A lot at position 0 (front of queue) has positionWeight = 1.0 (full
+rate). A lot at position = sideTotal (hypothetical back) would have
+positionWeight = 0.0 (no rate). In practice, positions are bounded
+below sideTotal by the post-snapshot rescale (see A.8).
 
-    positionWeight = ((nT - tranche) * RAY) / nT
+The epoch budget for each side is:
 
-This gives tranche 0 a weight of RAY (1.0) and tranche nT-1 a
-weight of RAY/nT (e.g., 0.1 with 10 tranches).
+    budget = sideTotal * rBase / RAY
 
-Per-lot rate:
+The budget is distributed proportionally to each lot's weighted stake:
 
-    rLot = (rBase * positionWeight) / RAY
+    myWeightedStake = lot.amount * positionWeight
+    totalWeightedStake = sum(myWeightedStake) across all lots on this side
+    delta = budget * myWeightedStake / totalWeightedStake
 
-Per-lot balance update:
-
-    delta = (lot.amount * rLot) / RAY
-
-    if aligned (lot side matches VS sign):
-        lot.amount += delta       (minted)
-    else:
-        loss = min(delta, lot.amount)
-        lot.amount -= loss        (burned)
+If aligned (lot side matches VS sign):
+    lot.amount += delta       (minted)
+else:
+    loss = min(delta, lot.amount)
+    lot.amount -= loss        (burned)
 
 Where "aligned" means:
 - supportWins && lot.side == support, OR
 - !supportWins && lot.side == challenge
 
+Note: The `numTranches` storage variable and `setNumTranches` governance
+function exist in the contract for ABI compatibility with earlier
+versions. They are not consulted by the reward math.
+
 A.7. sMax Decay
 
-sMax is NOT monotonically increasing. It decays over time to prevent
-stale historical peaks from permanently suppressing participation
-factors on all future posts.
+sMax decays over time to prevent stale historical peaks from
+permanently suppressing participation factors on all future posts.
 
-Decay is applied whenever sMax is refreshed (on any state-changing
-operation):
+Decay rate: 0.5% per epoch (SMAX_DECAY_RATE_RAY = 995e15).
+
+sMax is maintained via a top-3 post tracker. When a post's total
+stake changes, the tracker is updated. If the leader's total is
+below the current sMax, exponential decay is applied:
 
     for each epoch elapsed since sMaxLastUpdatedEpoch:
-        sMax = (sMax * 0.999e18) / RAY
+        sMax = (sMax * 995e15) / RAY
 
 Decay is bounded: at most 3650 epochs (10 years) of decay are applied
 in a single refresh, preventing unbounded gas cost if a post is
 untouched for a long time.
 
-After decay, sMax is raised to at least the current post's total:
+After decay, sMax is floored at the current leader's total:
 
-    if (sides[0].total + sides[1].total) > sMax:
-        sMax = sides[0].total + sides[1].total
+    sMax = max(decayed, leaderTotal)
 
-A.8. Mint and Burn
+If the leader's total exceeds the previous sMax, sMax is raised
+immediately (no decay applied).
+
+A.8. Position Rescale
+
+After each snapshot's epoch math (A.6) and side total recomputation,
+the StakeEngine rescales all lots' weightedPosition values so that
+the maximum position on each side is strictly less than sideTotal:
+
+    if maxPosition >= sideTotal:
+        target = sideTotal - 1
+        for each lot:
+            lot.weightedPosition = lot.weightedPosition * target / maxPosition
+
+This prevents the edge case where earlier stakers withdraw and shrink
+sideTotal below later stakers' positions, which would clamp those lots'
+positionWeight to zero. The rescale preserves relative ordering of all
+lots and applies to ghost lots (amount = 0) as well.
+
+The rescale is a post-snapshot cleanup: during the current epoch's
+computation, lots with oversized positions receive zero weight (via
+the existing posShare > RAY clamp). The rescale fixes them for the
+next epoch.
+
+A PositionsRescaled event is emitted when rescale fires.
+
+A.9. Mint and Burn
 
 After all lots on both sides of a post are updated, the StakeEngine:
 
@@ -512,7 +429,7 @@ The StakeEngine holds all staked tokens. Minting adds new tokens to
 its balance; burning removes tokens from its balance. The net supply
 change per epoch is (totalMinted - totalBurned).
 
-A.9. View Projection
+A.10. View Projection
 
 Read calls (getPostTotals, getUserStake) return projected values that
 include unrealized gains and losses since the last snapshot. The
@@ -520,33 +437,40 @@ projection replicates the snapshot math without writing state,
 including sMax decay projection. This ensures views are always current
 without requiring gas.
 
-A.10. Withdrawal
+Note: view projections do not project the position rescale (A.8).
+Lots with oversized positions will show zero weight in projections
+until the next snapshot materializes the rescale. This is consistent
+with the write path, where those lots also receive zero weight during
+the epoch that triggers the rescale.
+
+A.11. Withdrawal
 
 Users may withdraw any amount up to their lot's current amount.
 Withdrawal reduces lot.amount and sideTotal. The lot's
 weightedPosition is NOT changed on withdrawal — the user retains
 their positional advantage for the remaining stake.
 
-A.11. Governance Parameters
+A.12. Governance Parameters
 
 The following parameters are modifiable via governance (TimelockController):
 
 - R_MIN_ANNUAL: minimum annual rate (StakeRatePolicy.stakeIntRateMinRay)
 - R_MAX_ANNUAL: maximum annual rate (StakeRatePolicy.stakeIntRateMaxRay)
-- numTranches: number of positional tranches (StakeEngine.setNumTranches)
 - snapshotPeriod: minimum time between snapshots (StakeEngine.setSnapshotPeriod)
+- maxIncomingEdges: ScoreEngine fan-in limit (ScoreEngine.setEdgeLimits)
+- maxOutgoingLinks: ScoreEngine fan-out limit (ScoreEngine.setEdgeLimits)
 - postingFeeVSP: posting fee in VSP (PostingFeePolicy.setPostingFee)
 - minTotalStakeVSP: activity threshold (ClaimActivityPolicy.setMinTotalStake)
+- numTranches: legacy field (StakeEngine.setNumTranches) — stored but not used
 
 Current deployed values (Fuji testnet):
 - R_MIN_ANNUAL = 0 (no minimum rate)
 - R_MAX_ANNUAL = 1e18 (100% annual)
-- numTranches = 10
 - snapshotPeriod = 1 day
+- maxIncomingEdges = 64
+- maxOutgoingLinks = 64
 - postingFeeVSP = 1e18 (1 VSP)
-
-Note: The whitepaper historically referenced a 1% minimum rate.
-This is not deployed. It may be set via governance in the future.
+- SMAX_DECAY_RATE_RAY = 995e15 (0.5% per epoch)
 
 ------------------------------------------------------------------------------
 Appendix B. Behavioral Notes (Informative)
@@ -555,7 +479,8 @@ Appendix B. Behavioral Notes (Informative)
 B.1. Neutral Verity Score (VS_num = 0)
 
 When VS_num is exactly zero, the snapshot short-circuits immediately.
-No lots are modified; no tokens are minted or burned.
+No lots are modified; no tokens are minted or burned. Position rescale
+still runs on the VS-neutral early-return path.
 
 B.2. Incentive Against Post Fracturing
 
@@ -575,7 +500,7 @@ B.4. sMax Decay Prevents Historical Lock-In
 
 Without decay, a single large historical post could set sMax to a value
 that suppresses participation factors on all future posts indefinitely.
-The 0.1% daily decay ensures sMax gradually tracks current activity.
+The 0.5% daily decay ensures sMax gradually tracks current activity.
 
 B.5. No Recursive Link Propagation in StakeEngine
 
@@ -584,7 +509,24 @@ StakeEngine. The StakeEngine uses only direct stake totals (A, D) for
 its rate computation. Effective VS (including link contributions) is a
 read-only view provided by the ScoreEngine for display and analytics.
 
-B.6. Implementation Flexibility
+B.6. Single-Sided Positions
+
+A user cannot hold stake on both sides of the same post. Attempting to
+stake on the opposite side when the user already has a non-zero lot on
+the current side reverts with OppositeSideStaked. To flip sides, the
+user must withdraw fully from the current side first, then stake on the
+new side.
+
+B.7. Position Rescale Timing
+
+The position rescale (A.8) is a post-snapshot cleanup. During the epoch
+in which a withdrawal causes positions to exceed sideTotal, affected
+lots receive zero weight — this is a one-epoch penalty. The rescale
+runs after the epoch math and fixes positions for subsequent epochs.
+Users can avoid the penalty by re-staking (which triggers a snapshot
+and rescale) before the next natural snapshot fires.
+
+B.8. Implementation Flexibility
 
 The Solidity implementation may:
 - Use epoch-based discrete updates with a configurable snapshot period.
@@ -594,3 +536,22 @@ The Solidity implementation may:
 
 As long as the semantics remain consistent with this appendix,
 implementations are considered conformant.
+
+------------------------------------------------------------------------------
+Appendix C. Cycle Handling in ScoreEngine (Informative)
+------------------------------------------------------------------------------
+
+The LinkGraph permits cycles (e.g., A challenges B, B challenges A).
+The ScoreEngine's effectiveVSRay computation handles cycles as follows:
+
+1. A stack of post IDs currently being computed is passed through
+   recursive calls.
+2. Before recursing into a parent, the engine checks if the parent's
+   post ID is already on the stack.
+3. If so, the parent's contribution for that path is 0 (not its base VS).
+4. A hard depth limit of 32 truncates contributions to zero regardless.
+5. The credibility gate (parent VS <= 0 => contribution 0) further
+   stabilizes cycles by silencing claims whose VS drops to zero.
+
+The result is that effectiveVS is well-defined and bounded on any
+directed graph, not merely on a DAG.

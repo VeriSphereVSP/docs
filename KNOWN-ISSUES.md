@@ -4,7 +4,7 @@
 
 ### 1. ScoreEngine.effectiveVSRay — Recursive Gas Cost
 
-**Status:** Monitor. Not yet a problem at current scale.
+**Status:** Mitigated. Bounded fan-in implemented.
 
 **Issue:** `effectiveVSRay` recursively calls `getIncoming` and
 `getOutgoing` across LinkGraph and StakeEngine, with depth up to 32.
@@ -12,71 +12,40 @@ Each level loads dynamic arrays from storage. A claim with many
 incoming links from parents that each have many outgoing links could
 hit RPC node timeouts on view calls.
 
-**Risk level:** Low for MVP. The function is `view` (no on-chain gas
-limit for eth_call), but RPC providers impose their own timeouts
-(typically 10-30s). A claim with 50+ incoming links from parents with
-20+ outgoing links each could exceed this.
+**Mitigation (deployed):**
+- `maxIncomingEdges` (default 64): limits incoming edges processed per
+  `effectiveVSRay` call. Edges beyond this limit are silently skipped.
+- `maxOutgoingLinks` (default 64): limits outgoing links summed when
+  computing a parent's link stake distribution.
+- Both are governance-configurable via `ScoreEngine.setEdgeLimits()`.
 
-**Proposed fix (future UUPS upgrade):**
-- Add `MAX_INCOMING_EDGES` (e.g., 64) to `_sumIncomingContributions`.
-  Process only the first N edges sorted by contribution magnitude.
-- Add `MAX_OUTGOING_LINKS` (e.g., 64) to `_sumOutgoingLinkStake`.
-- These limits would be governance-configurable.
-- The off-chain indexer can compute unbounded effective VS for display;
-  the on-chain version serves as a bounded approximation.
-
-**Workaround (no contract change):** The backend already caches VS
-via the chain indexer. If RPC timeouts occur, increase cache duration
-and compute effective VS off-chain from indexed data.
+**Remaining risk:** With both limits at 64 and depth 32, worst-case gas
+is still significant. If RPC timeouts occur, increase cache duration in
+the backend indexer and compute effective VS off-chain from indexed data.
 
 ### 2. StakeEngine — Ghost Lots in SideQueue
 
-**Status:** Low risk. Bounded by unique users, not operations.
+**Status:** Mitigated. Governance compaction implemented.
 
 **Issue:** When a lot's amount reaches zero (fully burned by adverse
 VS), the lot remains in the `SideQueue.lots` array with `amount = 0`.
-`_recomputeSideTotal` and `_applyEpochTranched` iterate over all lots
+`_recomputeSideTotal` and `_applyEpoch` iterate over all lots
 including zero-amount ghosts. Over time, this increases snapshot gas.
 
-**Why it's bounded:** StakeEngine v2 uses lot consolidation — one lot
+**Why it's bounded:** StakeEngine uses lot consolidation — one lot
 per user per side per post. Ghost lots can only accumulate from unique
 users who were fully burned out. A post would need thousands of
 distinct users who all lost 100% of their stake to cause material
 gas increase.
 
-**Proposed fix (future UUPS upgrade):**
-- Option A: Add a governance-callable `compactLots(postId, side)`
-  that removes zero-amount lots and re-indexes the lot mappings.
+**Mitigation (deployed):**
+- `compactLots(postId, side)`: governance-callable function that
+  removes zero-amount lots using swap-and-pop. O(N) per call.
   Storage-compatible (doesn't change layout).
-- Option B: During withdrawal, if `lot.amount == 0` after the
-  withdrawal, swap-and-pop the lot from the array. Requires updating
-  `lotIndex` mappings for the swapped lot.
-- Option C: Skip zero-amount lots in `_applyEpochTranched` (already
-  done via `if (lot.amount == 0) continue`) but also skip them in
-  `_recomputeSideTotal` by maintaining a running total instead of
-  re-summing. This is a logic change, not a storage change.
+- Ghost lots are also rescaled during position rescale (A.8 in the
+  claim-spec) so their positions stay bounded even before compaction.
 
-**Recommendation:** Option A (governance compaction) is safest and
-storage-compatible. Implement when any post exceeds ~100 ghost lots.
-
-## Test Hygiene (Completed)
-
-### Duplicate Mock Definitions — Fixed
-
-Inline MockVSP and MockPostingFeePolicy definitions in
-LinkGraphAcyclic.t.sol, PostRegistry.t.sol, ScoreEngine.t.sol, and
-StakeEngine.t.sol have been replaced with imports from test/mocks/.
-The shared mocks in test/mocks/ are the single source of truth.
-
-### Stale Test Assertions — Fixed
-
-- `test_Acyclic_RevertsOnCycle` → `test_CyclesAreAllowed` (cycles permitted)
-- `test_VSZeroBelowPostingFee` → fixed (baseVSRay doesn't check activity)
-- `test_VS_Zero_BelowFee` → fixed (same root cause)
-- `test_ClaimSummaryAndRawRays` → fixed (same root cause)
-- `testSnapshotTriggersOnStakeAfterPeriod` → fixed (assertGt → assertGe)
-
-
+**Recommendation:** Run compaction when any post exceeds ~100 ghost lots.
 
 ## Security: MM_PRIVATE_KEY (Accept for Testnet, Fix for Mainnet)
 
@@ -104,6 +73,7 @@ compromised, an attacker controls all USDC reserves and VSP inventory.
   wallet holds the bulk of reserves and requires manual top-ups.
 
 **Recommendation:** Option C for launch (simplest), migrate to B later.
+
 ## Addressed in Earlier Phases
 
 - Stale/duplicate address files (Phase 1)
@@ -111,3 +81,9 @@ compromised, an attacker controls all USDC reserves and VSP inventory.
 - deploy.sh volume wipe on upgrade (Phase 1)
 - relay.py undefined variable (Phase 1)
 - Documentation spec drift (Phase 2)
+- ScoreEngineFuzz.t.sol OppositeSideStaked failures (Phase 3 — fixed
+  by using dedicated challenger address in tests)
+- Position rescale edge case: stakers clamped to zero rate after
+  others withdraw (Phase 3 — fixed by post-snapshot _rescalePositions)
+- Documentation drift: sMax decay rate, cycle handling, tranche
+  terminology, KNOWN-ISSUES staleness (Phase 3 — this update)
