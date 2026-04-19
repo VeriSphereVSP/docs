@@ -194,7 +194,7 @@ Appendix A. Key properties:
 - **Base rate**: Computed from verity magnitude, post participation
   (total stake / sMax), and governance-controlled rate bounds.
 
-- **sMax decay**: The global reference decays at 0.1% per epoch,
+- **sMax decay**: The global reference decays at 0.5% per epoch (governance-configurable),
   preventing historical peaks from permanently suppressing rates.
 
 - **Epoch snapshots**: Growth/decay is applied discretely, at most
