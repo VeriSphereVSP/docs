@@ -100,9 +100,14 @@ Key rules:
   of 32 as additional safety.
 - The ScoreEngine bounds incoming-edge processing per claim and
   outgoing-link summation per parent (both default to 64,
-  governance-configurable). Edges beyond the limits are silently
-  skipped in insertion order; off-chain indexers should apply the
-  same caps when recomputing scores.
+  governance-configurable). When a claim or parent exceeds its limit,
+  edges are sorted by link stake descending — with ties broken by
+  linkPostId ascending — and only the top-N participate. Lower-staked
+  edges beyond the cap are inert: they neither contribute to the
+  parent's denominator nor produce a numerator, preserving
+  conservation of influence (whitepaper §4.4) under bounded fan-out.
+  Off-chain indexers must apply the same sort-and-cap rule with the
+  same tiebreak when recomputing scores.
 
 2.4 Staking Model (Summary)
 
@@ -123,15 +128,18 @@ Each StakeLot represents a user's consolidated position:
         uint256 entryEpoch;         // epoch of first stake on this side
     }
 
-When a user adds stake to an existing lot, the lot's weightedPosition
-is updated as the stake-weighted average of the prior position and
-the new entry position (the side's current total before the addition):
+When a user adds stake to an existing lot, the lot's `amount` grows
+in place and the StakeEngine recomputes every lot's `weightedPosition`
+on that side as the midpoint of its share of the new side total:
 
-    new_pos = (old_pos * old_amount + entry_pos * added) / (old_amount + added)
+    weightedPosition = cumBefore + amount / 2
 
-This means later additions move a user's effective position toward
-the back of the queue, diluting any position-weight advantage their
-original stake held.
+where `cumBefore` is the running sum of the amounts of lots earlier
+in the array. Earlier-entered users retain their array slot, so a
+top-up enlarges the lot in place rather than moving the user to the
+back of the queue. (Because every lot's `cumBefore` shifts when any
+lot's `amount` changes, all positions on the side are recomputed
+together; the relative array order is preserved.)
 
 Per side queue:
 
@@ -151,14 +159,18 @@ Per post:
 Global StakeEngine state:
 
 - sMax: a moving reference for the largest post total. Tracked via
-  a top-3 list of (postId, total). Decays at 0.5% per epoch when the
-  current leader is below the previous sMax (capped at 3650 epochs of
-  compounded decay per refresh). When a leader exists, sMax is the
-  greater of the decayed value and the leader's total.
+  a top-3 list of (postId, total). Whenever the tracker is updated and
+  at least one entry has a non-zero total, sMax is snapped directly
+  to the leader's total — there is no slow decay during normal
+  operation. A fallback exponential decay (governance-configurable;
+  currently 10% per epoch capped at 30 epochs) is applied only when
+  the tracker is empty (no active posts), which prevents a stale sMax
+  from staying frozen forever after a complete unwind.
 - snapshotPeriod: minimum elapsed time between O(N) per-post
   recomputations. Defaults to 1 day; governance-configurable.
-- numTranches: legacy storage variable; the current implementation
-  uses continuous position weighting (not discrete tranches).
+- (Earlier StakeEngine versions exposed a `numTranches` storage
+  variable; the v3 implementation deployed today removed it entirely.
+  Position weighting is continuous via the midpoint formula above.)
 
 Activity threshold:
 
@@ -198,21 +210,14 @@ Per-epoch effective base rate:
       rMax = R_MAX_ANNUAL_RAY * EPOCH_LENGTH * epochsElapsed / YEAR
       rBase = rMin + (rMax - rMin) * vRay * participationRay / RAY^2
 
-Per-side budget and per-lot distribution (continuous position
-weighting):
-
-      budget = sideTotal * rBase / RAY
+Per-lot growth/decay (continuous midpoint weighting; no side-wide
+budget redistribution):
 
 For each lot on the side:
 
       posShare    = lot.weightedPosition * RAY / sideTotal       (clamped to RAY)
       posWeight   = RAY - posShare
-      myWeighted  = lot.amount * posWeight / RAY
-
-The total weighted stake across the side is the sum of myWeighted.
-Each lot's share of the budget is:
-
-      delta = budget * myWeighted / totalWeightedStake
+      delta       = lot.amount * rBase * posWeight / RAY^2
 
 If the lot is on the winning side (aligned):
 
@@ -228,14 +233,17 @@ never go below zero (limited liability).
 
 Notes:
 
-- sMax decay (0.5% per epoch, compounded, capped at 3650 epochs per
-  refresh) prevents historical peaks from permanently suppressing
-  rates on smaller, later posts.
-- Position weighting is continuous and stake-weighted, not tranched.
-  Earlier-positioned (low weightedPosition) lots earn closer to the
-  full rate; later-positioned lots earn proportionally less.
-- The model still discourages "fracturing" into many small posts:
-  small T relative to sMax yields low participation, hence low rate.
+- Each lot's effective per-epoch rate is its own
+  `rBase * posWeight / RAY`, applied to its own amount, with no
+  proportional-share normalization across the side. A sole staker
+  earns `rBase / 2`; the first of many earlier stakers approaches
+  `rBase`. An individual lot's rate never exceeds rBase.
+- sMax tracking uses a top-3 leader tracker that snaps `sMax` to the
+  current leader's total whenever any post is active. A fallback
+  exponential decay (governance-configurable; currently 10% per epoch
+  capped at 30 epochs) only runs when no active posts exist.
+- The model discourages "fracturing" into many small posts: small T
+  relative to sMax yields low participation, hence low rate.
 
 2.6 Staking API (Simplified)
 
@@ -253,9 +261,19 @@ StakeEngine exposes:
   - The lifo parameter is deprecated and ignored; kept for ABI
     compatibility.
   - May trigger a snapshot first (materializing gains/losses).
-  - Reduces the caller's lot amount in place; weighted position
-    is unchanged.
-  - Updates sMax.
+  - Reduces the caller's lot amount and recomputes every lot's
+    weightedPosition on the side using the midpoint formula. A
+    fully-withdrawn user keeps their array slot as a ghost lot
+    (`amount = 0`); ghost lots are removable by a governance call
+    to compactLots(postId, side).
+  - Updates sMax via the top-3 tracker.
+
+- setStake(postId, target):
+  - Signed-target convenience entrypoint used by the application
+    layer. `target == 0` withdraws any stake on either side;
+    `target > 0` withdraws any challenge stake then sets support to
+    `|target|` (adding or removing as needed); `target < 0` does the
+    opposite. All effects happen in a single transaction.
 
 - updatePost(postId):
   - Permissionless. Forces a snapshot if any time has elapsed since
@@ -535,7 +553,7 @@ Centralization:
     user cannot hold both sides on the same post.
   - Assigns economic outcomes through snapshot-based growth and decay,
     with continuous position weighting.
-  - Uses a top-3 sMax tracker with 0.5%/epoch decay to favor activity
+  - Uses a top-3 sMax tracker that snaps to the leader's total during normal operation; a fallback exponential decay only runs when no posts are active
     on large posts without permanently suppressing later participation.
   - Permits cycles in the link graph; safety is achieved by recursion-
     stack cycle detection plus a depth-32 cap and bounded fan-in in

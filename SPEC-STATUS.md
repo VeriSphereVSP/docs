@@ -33,17 +33,28 @@ tracks the code.
    This differs from the symmetric `(2A/T - 1)` formula used internally
    by StakeEngine for rate sign determination. Both agree on sign.
 
-4. **sMax decays at 0.5% per epoch.** `SMAX_DECAY_RATE_RAY = 995e15`.
-   The global reference decays when the leading post's total stake falls
-   below the previous sMax, preventing historical lock-in.
+4. **sMax tracks the leader; fallback decay only when empty.** A top-3
+   leader tracker snaps `sMax` to the largest active post's total during
+   normal operation; there is no slow decay while any post is active.
+   A governance-configurable fallback exponential decay
+   (`sMaxDecayRateRay = 9e17`, i.e. 10% per epoch, capped at
+   `sMaxDecayMaxEpochs = 30`) only runs in the corner case where every
+   post has zero stake, so sMax cannot stay frozen forever after a
+   complete unwind.
 
 5. **Minimum rate is 0.** The deployed StakeRatePolicy has
    `stakeIntRateMinRay = 0`. References to a 1% minimum are aspirational.
 
-6. **Continuous positional weighting.** The StakeEngine uses a continuous
-   linear weight: `positionWeight = 1 - (weightedPosition / sideTotal)`.
-   The `numTranches` storage variable exists for ABI compatibility but is
-   not consulted by the reward math.
+6. **Continuous midpoint positional weighting; per-lot independent
+   rate.** The StakeEngine uses
+   `weightedPosition = cumBefore + amount/2` and
+   `positionWeight = 1 - (weightedPosition / sideTotal)`, applied
+   independently per lot with no side-wide budget redistribution.
+   A sole staker earns rBase/2; the first of many earlier stakers
+   approaches rBase. The earlier `numTranches` storage variable and
+   `setNumTranches` setter have been **fully removed** in StakeEngine
+   v3 — the contract does not expose any tranche-related storage or
+   ABI surface.
 
 7. **Post-snapshot position rescale.** After each snapshot, all lots'
    `weightedPosition` values are mapped into `[0, sideTotal - 1)` to
@@ -59,8 +70,34 @@ tracks the code.
 10. **Ghost lot compaction.** `compactLots(postId, side)` is a governance-
     callable function that removes zero-amount lots via swap-and-pop.
 
+11. **Bounded fan-in: stake-desc sort + linkPostId-asc tiebreak.** When
+    a claim has more incoming edges than `maxIncomingEdges`, or a parent
+    has more outgoing links than `maxOutgoingLinks`, the ScoreEngine
+    sorts those edges by link stake descending (with ties broken by
+    linkPostId ascending — older link wins) and processes only the top
+    N. Off-chain indexers must apply the same sort-and-cap rule with
+    the same tiebreak when recomputing scores.
+
+12. **Conservation of influence under bounded fan-out.** A link outside
+    its parent's top-`maxOutgoingLinks` outgoing links contributes zero
+    to its target's effective VS — it does not appear in either the
+    parent's denominator (sumOutgoingLinkStake) or a numerator. This
+    preserves the whitepaper §4.4 invariant that the sum of `linkShare`
+    across a parent's outgoing links is ≤ 1.0 even when the parent has
+    more outgoing links than the cap. Implemented by ScoreEngine v2.1
+    (`_isInTopN` gate in `_computeEdgeContribution`).
+
 ## Last Updated
 
-Phase 3 — aligned all docs with StakeEngine v2 (position rescale,
-continuous weighting, single-sided positions), ScoreEngine v2
-(bounded fan-in, cycle handling), and deployed Fuji testnet state.
+Phase 4 — full doc-vs-code reconciliation plus a protocol change.
+Aligned all docs with the deployed StakeEngine v3 (midpoint weighting,
+per-lot independent rate, no redistribution; setStake/setSMaxDecayRate/
+setSMaxDecayMaxEpochs/rescanSMax/getTopPosts/getUserLotInfo entrypoints;
+numTranches removed; sMax snap-to-leader with fallback-only decay;
+withdraw recomputes positions; MAX_CLAIM_LENGTH = 2000 bytes). Promoted
+ScoreEngine to v2.1: outgoing-link bound now sorts by stake desc with
+linkPostId-ascending tiebreak (matching the existing incoming bound);
+links outside the parent's top-N contribute zero, preserving
+conservation of influence (whitepaper §4.4) under bounded fan-out;
+public getEdgeContribution view also gates on the incoming top-N so
+its result matches what effectiveVSRay would see.

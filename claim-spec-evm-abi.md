@@ -1,5 +1,5 @@
 # VeriSphere Claim and Staking Specification (EVM-ABI Formal Style)
-Version: 0.6 (MVP, ASCII only, link-aware)
+Version: 0.7 (MVP, ASCII only, link-aware, v3 StakeEngine, v2.1 ScoreEngine)
 
 This document defines the ABI-level specification for the core VeriSphere
 on-chain components:
@@ -67,7 +67,7 @@ acyclicity; cycle handling is performed by the ScoreEngine at read time
 interface IPostRegistry {
     // Create a new immutable claim.
     // text           Claim text, expected to be atomic and non-empty.
-    //                Max length: 500 bytes.
+    //                Max length: 2000 bytes (PostRegistry.MAX_CLAIM_LENGTH).
     //                Deduplicated via case-insensitive, whitespace-normalized
     //                keccak256 hash. Reverts DuplicateClaim(existingPostId)
     //                if a matching claim already exists.
@@ -125,16 +125,31 @@ interface IPostRegistry {
 ------------------------------------------------------------------------------
 
 interface IStakeEngine {
+    // ─── User entrypoints ────────────────────────────────────────
+
     // Stake VSP on a post, on either support or challenge side.
     // Reverts OppositeSideStaked if user already has stake on the other side.
     function stake(uint256 postId, uint8 side, uint256 amount) external;
 
     // Withdraw stake from a post. Reduces the user's consolidated lot.
     // lifo parameter is accepted for ABI compatibility but ignored.
+    // Recomputes weightedPosition for every lot on the side after the
+    // withdrawal (midpoint formula) — partial withdrawal therefore
+    // shifts the user toward the front of the queue. A fully-withdrawn
+    // user retains a ghost lot (amount = 0) until compactLots is called.
     function withdraw(uint256 postId, uint8 side, uint256 amount, bool lifo) external;
+
+    // Convenience entrypoint: set the user's stake on a post to a
+    // signed target value, atomically.
+    //   target == 0  : withdraw all stake on either side
+    //   target > 0   : withdraw any challenge stake, then set support to |target|
+    //   target < 0   : withdraw any support stake, then set challenge to |target|
+    function setStake(uint256 postId, int256 target) external;
 
     // Apply epoch growth/decay. Anyone may call; typically a keeper or backend.
     function updatePost(uint256 postId) external;
+
+    // ─── Read methods ────────────────────────────────────────────
 
     // Returns projected totals (includes unrealized gains/losses).
     function getPostTotals(uint256 postId)
@@ -144,23 +159,70 @@ interface IStakeEngine {
     function getUserStake(address user, uint256 postId, uint8 side)
         external view returns (uint256);
 
+    // Returns lot diagnostics for a (user, post, side):
+    //   amount, weightedPosition, entryEpoch, sideTotal, positionWeight (RAY).
+    function getUserLotInfo(address user, uint256 postId, uint8 side)
+        external view returns (
+            uint256 amount,
+            uint256 weightedPosition,
+            uint256 entryEpoch,
+            uint256 sideTotal,
+            uint256 positionWeight
+        );
+
+    // Returns the top-3 sMax tracker (postId, total) tuples.
+    function getTopPosts() external view returns (
+        uint256 p0, uint256 t0,
+        uint256 p1, uint256 t1,
+        uint256 p2, uint256 t2
+    );
+
+    // ─── Governance ──────────────────────────────────────────────
+
+    // Set the snapshot period (minimum gap between O(N) per-post updates).
+    function setSnapshotPeriod(uint256 newPeriod) external;
+
+    // Set the sMax fallback decay rate. Must be in (0, RAY].
+    // RAY (1e18) = no decay; smaller values decay faster.
+    function setSMaxDecayRate(uint256 newRate) external;
+
+    // Set the cap on the number of fallback-decay epochs projected
+    // in a single call (gas safety for stale sMax catch-up).
+    function setSMaxDecayMaxEpochs(uint256 newMax) external;
+
+    // Rebuild the top-3 sMax tracker from a candidate list of postIds.
+    // Useful if the tracker has gone stale (e.g. after large withdrawals
+    // by the previous leader).
+    function rescanSMax(uint256[] calldata postIds) external;
+
     // Remove zero-amount ghost lots. Governance-only.
     function compactLots(uint256 postId, uint8 side) external;
 
-    // Events
+    // ─── Events ──────────────────────────────────────────────────
+
     event StakeAdded(uint256 indexed postId, address indexed staker, uint8 side, uint256 amount);
     event StakeWithdrawn(uint256 indexed postId, address indexed staker, uint8 side, uint256 amount, bool lifo);
     event PostUpdated(uint256 indexed postId, uint256 epoch, uint256 supportTotal, uint256 challengeTotal);
     event EpochMinted(uint256 indexed postId, uint256 amount);
     event EpochBurned(uint256 indexed postId, uint256 amount);
     event PositionsRescaled(uint256 indexed postId, uint8 side, uint256 oldMax, uint256 newCeiling);
+    event LotsCompacted(uint256 indexed postId, uint8 side, uint256 removed);
+    event SnapshotPeriodSet(uint256 oldPeriod, uint256 newPeriod);
+    event SMaxRescanned(uint256 newSMax, uint256 newSMaxPostId);
+    event SMaxDecayRateSet(uint256 oldRate, uint256 newRate);
+    event SMaxDecayMaxEpochsSet(uint256 oldMax, uint256 newMax);
 
-    // Errors
+    // ─── Errors ──────────────────────────────────────────────────
+
     error InvalidSide();
     error AmountZero();
     error OppositeSideStaked();
     error NotEnoughStake();
     error ZeroAddressToken();
+    error InvalidSnapshotPeriod();
+    error NoGhostLots();
+    error InvalidDecayRate();
+    error InvalidDecayMaxEpochs();
 }
 
 ------------------------------------------------------------------------------
@@ -214,7 +276,7 @@ interface IAuthority {
 ------------------------------------------------------------------------------
 
 - Specification name: claim-spec-evm-abi
-- Version: 0.6-mvp-links
+- Version: 0.7-mvp-v3
 - Chain target: Avalanche C-Chain / Subnet (EVM compatible)
 
 ------------------------------------------------------------------------------
@@ -262,16 +324,26 @@ hold lots on both sides of the same post; attempting to stake on the
 opposite side reverts with OppositeSideStaked.
 
 When a user stakes additional tokens on a side where they already have
-a lot, the lot is merged:
-
-    newPosition = (existing.weightedPosition * existing.amount
-                   + queue.total * newAmount)
-                  / (existing.amount + newAmount)
+a lot, only the lot's amount changes — the lot keeps its array slot:
 
     existing.amount += newAmount
 
-New lots enter at position = queue.total (back of the queue).
-This means earlier, larger stakes have lower weightedPosition values.
+After every queue mutation (stake, top-up, withdrawal, snapshot), the
+StakeEngine recomputes every lot's weightedPosition on the side as the
+midpoint of its share of the side total:
+
+    weightedPosition[i] = sum(amount[0..i-1]) + amount[i] / 2
+
+That is, each lot's weightedPosition is the running cumulative-sum of
+prior lots plus half of its own amount. Lots earlier in the array
+therefore have lower weightedPosition values; topping up an existing
+lot does not move the user to the back of the queue, but it does
+expand the user's amount-weighted occupancy of the queue, which in
+turn lowers the positionWeight of every lot behind them.
+
+A fully-withdrawn user retains a "ghost lot" (amount = 0) at their
+original array slot until governance calls compactLots(postId, side).
+Ghost lots are skipped in epoch math (amount * anything = 0).
 
 A.3. Base Verity Score
 
@@ -331,67 +403,86 @@ Properties:
 - If T == 0 or sMax == 0, no economic effect.
 - rBase increases with both verity magnitude and post size.
 
-A.6. Continuous Positional Weighting
+A.6. Continuous Positional Weighting (Per-Lot Independent Rate)
 
-Each lot's reward share is determined by its weightedPosition relative
-to the side total. There are no discrete buckets or tranches; the
-weight is a continuous linear function:
+Each lot's reward is determined independently by its weightedPosition
+relative to the side total. There are no discrete buckets or tranches,
+and there is no side-wide budget redistribution: every lot is
+processed on its own.
 
     positionWeight = 1 - (lot.weightedPosition / sideTotal)
+                   = (sideTotal - lot.weightedPosition) / sideTotal
 
-A lot at position 0 (front of queue) has positionWeight = 1.0 (full
-rate). A lot at position = sideTotal (hypothetical back) would have
-positionWeight = 0.0 (no rate). In practice, positions are bounded
-below sideTotal by the post-snapshot rescale (see A.8).
+Because weightedPosition is the midpoint of the lot's share of the
+side total (A.2), a sole staker on a side has weightedPosition = T/2
+and therefore positionWeight = 1/2; the first of many earlier stakers
+has weightedPosition near 0 and approaches positionWeight = 1.0.
 
-The epoch budget for each side is:
+Per-lot epoch delta:
 
-    budget = sideTotal * rBase / RAY
+    delta = lot.amount * rBase * positionWeight / RAY
 
-The budget is distributed proportionally to each lot's weighted stake:
-
-    myWeightedStake = lot.amount * positionWeight
-    totalWeightedStake = sum(myWeightedStake) across all lots on this side
-    delta = budget * myWeightedStake / totalWeightedStake
+Note that delta scales as `amount * rBase * (T - wPos) / T`, so an
+individual lot's effective per-epoch rate never exceeds rBase.
 
 If aligned (lot side matches VS sign):
-    lot.amount += delta       (minted)
+    lot.amount += delta       (StakeEngine mints delta into itself)
 else:
     loss = min(delta, lot.amount)
-    lot.amount -= loss        (burned)
+    lot.amount -= loss        (StakeEngine burns loss; amount floored at 0)
 
 Where "aligned" means:
 - supportWins && lot.side == support, OR
 - !supportWins && lot.side == challenge
 
-Note: The `numTranches` storage variable and `setNumTranches` governance
-function exist in the contract for ABI compatibility with earlier
-versions. They are not consulted by the reward math.
+The mint and burn totals are summed across all lots on both sides of
+the post and a single VSP_TOKEN.mint and VSP_TOKEN.burn are issued
+per snapshot (see A.9).
 
-A.7. sMax Decay
+Note: The previous tranche-based model and its `numTranches` /
+`setNumTranches` governance surface have been fully removed from the
+deployed StakeEngine v3. The contract no longer has any tranche
+storage or function; A.6 above is the entire reward math.
 
-sMax decays over time to prevent stale historical peaks from
-permanently suppressing participation factors on all future posts.
+A.7. sMax Tracker and Fallback Decay
 
-Decay rate: 0.5% per epoch (SMAX_DECAY_RATE_RAY = 995e15).
+sMax is maintained via a top-3 post tracker. The tracker stores the
+three (postId, total) tuples with the largest totals. Whenever any
+post's total changes, the StakeEngine updates the tracker and snaps
+sMax to the leader's total:
 
-sMax is maintained via a top-3 post tracker. When a post's total
-stake changes, the tracker is updated. If the leader's total is
-below the current sMax, exponential decay is applied:
+    if leaderTotal > 0:
+        sMax = leaderTotal
+        sMaxLastUpdatedEpoch = currentEpoch
+    else:
+        sMax = applyFallbackDecay(currentEpoch)
+
+During normal operation — i.e., as long as at least one post has
+non-zero total stake — sMax is therefore equal to the largest active
+post's total. There is no slow continuous decay during this regime;
+the moment a leader withdraws, sMax snaps down to the new leader.
+
+Fallback decay applies only in the corner case where the tracker is
+empty (every active post unwound). In that case, exponential decay
+runs each epoch:
 
     for each epoch elapsed since sMaxLastUpdatedEpoch:
-        sMax = (sMax * 995e15) / RAY
+        sMax = (sMax * sMaxDecayRateRay) / RAY
 
-Decay is bounded: at most 3650 epochs (10 years) of decay are applied
-in a single refresh, preventing unbounded gas cost if a post is
-untouched for a long time.
+Both `sMaxDecayRateRay` and the cap `sMaxDecayMaxEpochs` are
+governance-configurable via setSMaxDecayRate and setSMaxDecayMaxEpochs.
+Current defaults: rate = 9e17 (10% per epoch), cap = 30 epochs. The
+cap prevents unbounded gas cost when catching up after a long idle
+period.
 
-After decay, sMax is floored at the current leader's total:
+After fallback decay, if any leader has reappeared in the tracker,
+sMax is floored at that leader's total:
 
     sMax = max(decayed, leaderTotal)
 
-If the leader's total exceeds the previous sMax, sMax is raised
-immediately (no decay applied).
+Governance can also call rescanSMax(postIds) to rebuild the tracker
+from an arbitrary list of candidate posts; this is useful if the
+tracker has lost a leader to withdrawals and a backfill is needed.
 
 A.8. Position Rescale
 
@@ -446,31 +537,50 @@ the epoch that triggers the rescale.
 A.11. Withdrawal
 
 Users may withdraw any amount up to their lot's current amount.
-Withdrawal reduces lot.amount and sideTotal. The lot's
-weightedPosition is NOT changed on withdrawal — the user retains
-their positional advantage for the remaining stake.
+Withdrawal reduces lot.amount and sideTotal, and then the StakeEngine
+recomputes every lot's weightedPosition on the side using the midpoint
+formula in A.2. As a result, partial withdrawal slightly shifts the
+user (and every lot after them in the array) toward the front of the
+queue — their relative array order is preserved, but their
+weightedPosition shrinks because the side total they sit inside has
+shrunk.
+
+A fully-withdrawn user retains a ghost lot (amount = 0) at their
+original array index. The lotIndex mapping still points there, so a
+later top-up by the same user merges back into the same slot rather
+than creating a new lot at the back of the queue. Ghost lots can be
+removed by a governance call to compactLots(postId, side).
+
+The lifo parameter on the withdraw function is accepted for ABI
+compatibility but is ignored; lots are no longer FIFO/LIFO ranges,
+just (user, side) pairs.
 
 A.12. Governance Parameters
 
 The following parameters are modifiable via governance (TimelockController):
 
-- R_MIN_ANNUAL: minimum annual rate (StakeRatePolicy.stakeIntRateMinRay)
-- R_MAX_ANNUAL: maximum annual rate (StakeRatePolicy.stakeIntRateMaxRay)
+- R_MIN_ANNUAL: minimum annual rate (StakeRatePolicy.setRates)
+- R_MAX_ANNUAL: maximum annual rate (StakeRatePolicy.setRates)
 - snapshotPeriod: minimum time between snapshots (StakeEngine.setSnapshotPeriod)
+- sMaxDecayRateRay: fallback sMax decay rate (StakeEngine.setSMaxDecayRate); only consulted when no posts are active
+- sMaxDecayMaxEpochs: cap on fallback-decay epochs per call (StakeEngine.setSMaxDecayMaxEpochs)
 - maxIncomingEdges: ScoreEngine fan-in limit (ScoreEngine.setEdgeLimits)
 - maxOutgoingLinks: ScoreEngine fan-out limit (ScoreEngine.setEdgeLimits)
 - postingFeeVSP: posting fee in VSP (PostingFeePolicy.setPostingFee)
 - minTotalStakeVSP: activity threshold (ClaimActivityPolicy.setMinTotalStake)
-- numTranches: legacy field (StakeEngine.setNumTranches) — stored but not used
 
 Current deployed values (Fuji testnet):
 - R_MIN_ANNUAL = 0 (no minimum rate)
 - R_MAX_ANNUAL = 1e18 (100% annual)
 - snapshotPeriod = 1 day
-- maxIncomingEdges = 64
-- maxOutgoingLinks = 64
+- sMaxDecayRateRay = 9e17 (10% per epoch, fallback only)
+- sMaxDecayMaxEpochs = 30
+- maxIncomingEdges = 64 (sort by stake desc, ties: linkPostId asc; cut links contribute 0)
+- maxOutgoingLinks = 64 (sort by stake desc, ties: linkPostId asc; cut links contribute 0)
 - postingFeeVSP = 1e18 (1 VSP)
-- SMAX_DECAY_RATE_RAY = 995e15 (0.5% per epoch)
+- minTotalStakeVSP = 1e18 (1 VSP)
+- MAX_CLAIM_LENGTH = 2000 bytes (PostRegistry constant; not governance-configurable)
+- MAX_DEPTH = 32 (ScoreEngine constant; not governance-configurable)
 
 ------------------------------------------------------------------------------
 Appendix B. Behavioral Notes (Informative)
@@ -496,11 +606,16 @@ position (0*100 + 100*100) / 200 = 50. This is worse than a user who
 staked 200 VSP at position 0 (weighted position 0), but better than a
 user who staked 200 VSP at position 100.
 
-B.4. sMax Decay Prevents Historical Lock-In
+B.4. sMax Tracking Tracks Current Activity
 
-Without decay, a single large historical post could set sMax to a value
-that suppresses participation factors on all future posts indefinitely.
-The 0.5% daily decay ensures sMax gradually tracks current activity.
+The top-3 leader tracker keeps sMax pinned to the largest active post's
+total at all times. As soon as the previous leader withdraws or has
+its stake burned below the second-place post's total, sMax snaps down
+to the new leader. There is therefore no risk of a historical pump
+permanently suppressing future participation factors: as soon as the
+attacker exits, sMax follows them down. The fallback exponential
+decay (A.7) is a safety net that only matters in the empty-protocol
+corner case.
 
 B.5. No Recursive Link Propagation in StakeEngine
 
@@ -538,8 +653,33 @@ As long as the semantics remain consistent with this appendix,
 implementations are considered conformant.
 
 ------------------------------------------------------------------------------
-Appendix C. Cycle Handling in ScoreEngine (Informative)
+Appendix C. Cycle Handling and Bounded Fan-In (Informative)
 ------------------------------------------------------------------------------
+
+The ScoreEngine bounds both incoming-edge processing per claim
+(maxIncomingEdges) and outgoing-link summation per parent
+(maxOutgoingLinks). When a claim or parent has more edges than the
+relevant cap, the edges are sorted by link stake descending — with
+ties broken deterministically by linkPostId ascending — and only the
+top-N participate.
+
+For outgoing edges, this preserves conservation of influence: the
+top-N outgoing links are exclusively the ones that sum into the
+parent's denominator (sumOutgoingLinkStake) and exclusively the ones
+that produce a non-zero numerator in the contribution formula. A
+link outside the parent's top-N contributes zero. As a result, the
+sum of linkShare values across all of a parent's outgoing links is
+always ≤ 1.0, and link spam past the cap is fully self-defeating.
+
+For incoming edges, the cap is just an information bound: edges
+beyond the top-N are skipped, which loses information but does not
+violate any invariant (incoming edges have no shared denominator
+across them).
+
+The deterministic tiebreak (linkPostId ascending = older link wins)
+is essential so that off-chain indexers recomputing scores agree
+with on-chain results when two links have identical stake.
+
 
 The LinkGraph permits cycles (e.g., A challenges B, B challenges A).
 The ScoreEngine's effectiveVSRay computation handles cycles as follows:

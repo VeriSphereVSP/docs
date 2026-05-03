@@ -46,8 +46,7 @@ flowchart LR
     C --> API["VeriSphere API<br/>REST / GraphQL"]
     API --> IX["Off-Chain Indexers<br/>Claim Graph · VS Derivations"]
     IX --> CH["On-Chain Core Protocol<br/>Avalanche C-Chain / Subnet"]
-    CH --> GOV["Governance Modules<br/>(Treasury · Parameters · Upgrades)"]
-    CH --> OR["Oracle Modules<br/>(Gold Price · Time Feeds)"]
+    CH --> GOV["Governance<br/>(TimelockController · per-policy contracts)"]
 ```
 
 ---
@@ -65,14 +64,19 @@ Avalanche provides fast finality (<1 sec), mature tooling, and EVM compatibility
 
 | Module | Responsibilities |
 |--------|------------------|
-| **VSP Token** | ERC-20 compatible; mint/burn rights for staking engine & treasury |
-| **PostRegistry** | Creates immutable Posts; enforces posting-fee burn; stores metadata & stake totals |
-| **StakeEngine** | Manages staking queues, flips, withdrawals, positional weight logic |
-| **YieldEngine** | Computes yield/burn based on VS, maturity, and position index |
-| **LinkGraph** | Manages support/challenge links, prevents cycles, calculates contextual influence |
-| **GovernanceHub** | Proposal lifecycle, quorum, threshold, execution of parameter and treasury actions |
-| **Treasury** | Holds VSP reserves, mints rewards, pays bounties |
-| **Oracle Interfaces** | Gold price oracle, time oracle, optional off-chain feeds |
+| **VSPToken** | ERC-20 with ERC-2612 permit; Authority-gated mint/burn |
+| **Authority** | Role registry (owner, minters, burners) |
+| **PostRegistry** | Creates immutable Posts; enforces posting-fee burn; stores claim/link metadata |
+| **LinkGraph** | Stores directed evidence edges; rejects self-loops and duplicate edges (cycles permitted) |
+| **StakeEngine** | Consolidated lots, snapshot-based growth/decay, mint/burn settlement, positional weighting |
+| **ScoreEngine** | Read-only computation of base and effective Verity Scores; cycle-safe; conservation-of-influence gate |
+| **ProtocolViews** | Read-only aggregation of claim summaries, edges, and scores |
+| **PostingFeePolicy** | Governance-set posting-fee amount |
+| **StakeRatePolicy** | Governance-set rMin / rMax annual rate bounds |
+| **ClaimActivityPolicy** | Governance-set minimum-stake threshold for post activation |
+| **TimelockController** | OpenZeppelin governance timelock; gates all parameter changes and proxy upgrades |
+
+There is no on-chain `YieldEngine`, `GovernanceHub`, `Treasury`, or oracle contract: yield/burn settlement lives inside `StakeEngine`, governance is the timelock plus the per-policy contracts above, treasury operations (relay-fee collection, market-maker reserves) are off-chain wallets coordinated by the application layer, and gold/time price feeds are consumed only by the off-chain market maker.
 
 ---
 
@@ -123,11 +127,11 @@ Avalanche provides fast finality (<1 sec), mature tooling, and EVM compatibility
 # 5. Protocol Flows
 
 ## 5.1 Post Creation
-1. User signs: `createPost(text)`  
+1. User signs: `createClaim(text)` (or `createLink(from, to, isChallenge)`)  
 2. Text is atomic (enforced by UI)  
-3. Gold-pegged posting fee burned  
+3. The current `PostingFeePolicy.postingFeeVSP()` (governance-set, currently 1 VSP) is transferred from the user and burned  
 4. Post saved with `VS = 0`  
-5. Post remains neutral until stake ≥ posting fee
+5. Post remains neutral until total stake ≥ the activity threshold (`ClaimActivityPolicy.minTotalStakeVSP`, defaulting to the posting fee)
 
 ---
 
@@ -158,48 +162,61 @@ internally for rate sign determination. Both agree on sign.
 
 ## 5.3 Evidence Linking
 
-Normalize source VS:
+For each incoming link `(parent → target)` via link post `L`, the
+contribution to the target's effective Verity Score is computed as:
 
-$`nVS = (BaseVS + 100) / 200`$
+```
+parentMass    = parentEffectiveVS × parentTotalStake / RAY
+linkShare     = linkStake / sumOutgoingLinkStake(parent)
+contribution  = parentMass × linkShare × linkBaseVS / RAY
+if isChallenge: contribution = -contribution
+```
 
-Support link adds:
+`parentEffectiveVS` is gated to be strictly positive (the credibility
+gate); `linkBaseVS` is similarly gated. Conservation of influence is
+enforced by `linkShare`: a parent's mass is split across its outgoing
+links in proportion to their stake, and under bounded fan-out the
+share is taken only over the top-`maxOutgoingLinks` outgoing links by
+stake (with ties broken by linkPostId ascending). A link outside that
+top-N contributes zero — see whitepaper §4.4.
 
-$`A_{support} += nVS \times R_{ctx}`$
-
-Challenge link adds:
-
-$`A_{challenge} += nVS \times R_{ctx}`$
-
-The link graph permits cycles. Two claims may challenge each other
-simultaneously. Cycles are handled during Verity Score computation
-by the ScoreEngine, which uses stack-based detection with a depth
-limit of 32. A post encountered on the computation stack contributes
-zero, preventing self-influence, but other edges of the same parent
-still apply. See the whitepaper §4.3 for details.
+The link graph permits cycles. The ScoreEngine handles them at read
+time using stack-based detection with a depth limit of 32: a post
+already on the recursion stack contributes zero for that path, and
+the credibility gate further stabilises cyclic graphs. See the
+whitepaper §4.2 and §4.3 for the full normative formulas and cycle
+analysis.
 
 ---
 
 ## 5.4 Yield & Burn Mechanics
 
-Stake economics are governed by the StakeEngine v2 implementation,
-which uses tranche-based positional weighting and epoch snapshots.
+Stake economics are governed by the StakeEngine v3 implementation,
+which uses continuous midpoint positional weighting and epoch snapshots.
 
 The **normative specification** is in `claim-spec-evm-abi.md`,
 Appendix A. Key properties:
 
-- **Tranche weighting**: Lots are assigned to one of `numTranches`
-  positional tranches (default 10). Tranche 0 (earliest) earns the
-  full base rate; tranche `nT-1` (latest) earns `1/nT` of it.
+- **Midpoint position weighting**: Each lot's `weightedPosition` is the
+  midpoint of its share of the side total (`cumBefore + amount/2`).
+  Per-lot rate factor is `(sideTotal − weightedPosition) / sideTotal`,
+  applied independently per lot — there is no side-wide budget
+  redistribution. A sole staker on a side earns half the base rate;
+  the first of many earlier stakers approaches the full rate.
 
 - **Base rate**: Computed from verity magnitude, post participation
-  (total stake / sMax), and governance-controlled rate bounds.
+  (total stake / sMax), and governance-controlled rate bounds (rMin,
+  rMax).
 
-- **sMax decay**: The global reference decays at 0.5% per epoch (governance-configurable),
-  preventing historical peaks from permanently suppressing rates.
+- **sMax tracker**: A top-3 post tracker keeps `sMax` snapped to the
+  leading post's total during normal operation. A fallback exponential
+  decay (governance-configurable, currently 10% per epoch capped at
+  30 epochs) only runs in the corner case where the protocol has zero
+  active posts.
 
 - **Epoch snapshots**: Growth/decay is applied discretely, at most
   once per `snapshotPeriod` (default 1 day), triggered by any
-  state-changing operation.
+  state-changing operation or by the permissionless `updatePost(postId)`.
 
 - **Symmetric economics**: Aligned lots grow; misaligned lots shrink.
   A lot can shrink to zero (total loss).
@@ -210,15 +227,25 @@ formulas, symbols, and implementation notes.
 ---
 
 ## 5.5 Withdrawal
-- Stake removed  
-- Queue re-ordered  
-- Final yield/burn applied  
-- Tokens returned
-- Resets positional advantage 
+- A snapshot first materializes any pending epoch gains/losses  
+- The user's `lot.amount` is reduced by the requested amount  
+- All lots on that side have their `weightedPosition` recomputed as midpoints over the new amounts (so a partial withdraw shifts the staker — and everyone after them in the array — slightly toward the front of the queue)  
+- The side total is reduced and the sMax tracker is updated  
+- Tokens are transferred back to the user  
+- A fully withdrawn user keeps their array slot with `amount = 0` (a "ghost lot"), removable by a governance call to `compactLots`  
 
-## 5.6 Flip Stake
-- Remove from one queue  
-- Insert at tail of opposite side  
+## 5.6 Set Stake
+The combined entrypoint `setStake(uint256 postId, int256 target)` lets
+the user reach a desired stake on a post in a single transaction:
+
+- `target == 0`: withdraw any stake on either side  
+- `target > 0`: withdraw any challenge stake first, then add or reduce support to reach `|target|`  
+- `target < 0`: withdraw any support stake first, then add or reduce challenge to reach `|target|`  
+
+Switching sides therefore requires no separate "flip" function: a user
+moving from `+5 VSP` to `-3 VSP` in one call has their support stake
+fully withdrawn and a fresh challenge lot opened at the back of the
+challenge queue.
 
 ---
 
@@ -329,13 +356,13 @@ Early foundational work earns the most.
 
 | Threat | Mitigation |
 |--------|------------|
-| Spam posting | Gold-pegged post fee |
+| Spam posting | VSP posting fee burned on creation (governance-set, currently 1 VSP) |
 | Whale ambush | Positional weighting + maturity factor |
 | Sybils | Capital-weighted incentives |
 | History rewrite | Posts immutable; supersession only |
 | AI hallucination | AI suggestions are off-chain only |
 | Cycle injection | Stack-based cycle detection in ScoreEngine (depth limit 32); credibility gate silences VS ≤ 0 parents |
-| Treasury abuse | GovernanceHub & multisig gating |
+| Treasury abuse | Off-chain treasury wallets gated by multisig and HSM/KMS plans (see KNOWN-ISSUES on MM_PRIVATE_KEY) |
 | Smart contract bugs | Audits, formal proofs, fuzzing |
 
 Recommended tools:
@@ -352,7 +379,7 @@ Recommended tools:
 | Phase | Deliverables |
 |-------|--------------|
 | **Alpha** | VSP token, PostRegistry, StakeEngine, VS logic |
-| **Beta** | GovernanceHub, Treasury, Oracles, Indexer |
+| **Beta** | TimelockController + per-policy governance, indexer, MM (off-chain), oracle adapters |
 | **Launch** | UI, API, AI assist, SDK, full Graph indexing |
 | **Scale** | Avalanche Subnet migration, mobile clients, AI-based truth maps |
 

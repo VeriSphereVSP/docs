@@ -86,4 +86,18 @@ compromised, an attacker controls all USDC reserves and VSP inventory.
 - Position rescale edge case: stakers clamped to zero rate after
   others withdraw (Phase 3 — fixed by post-snapshot _rescalePositions)
 - Documentation drift: sMax decay rate, cycle handling, tranche
-  terminology, KNOWN-ISSUES staleness (Phase 3 — this update)
+  terminology, KNOWN-ISSUES staleness (Phase 3)
+- Full doc-vs-code reconciliation + ScoreEngine v2.1: replaced
+  tranche/proportional-budget language with midpoint/per-lot rate;
+  replaced "sMax decays at 0.5%" with "snap-to-leader; fallback decay
+  only when empty"; added missing StakeEngine entrypoints (setStake,
+  setSMaxDecayRate, etc.) to the spec; fixed MAX_CLAIM_LENGTH to 2000
+  bytes; removed references to the (non-existent) GovernanceHub /
+  YieldEngine / Treasury / Oracle contracts; replaced architecture.md
+  §5.3 stale evidence-link formula with the code-correct parent-mass
+  propagation; promoted ScoreEngine to v2.1 — outgoing-link bound now
+  sorts by stake desc with linkPostId-asc tiebreak (matching incoming);
+  added a top-N membership gate so links outside a parent's top-N
+  contribute zero, restoring conservation of influence under bounded
+  fan-out; getEdgeContribution view now also applies the incoming
+  top-N gate (Phase 4 — this update)
